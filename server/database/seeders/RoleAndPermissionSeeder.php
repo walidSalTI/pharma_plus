@@ -147,14 +147,12 @@ class RoleAndPermissionSeeder extends Seeder
         ]);
 
         // --- Pharmacist ---
+        // Pharmacy-level permissions (pharmacy.manage, inventory.manage,
+        // operating-hours.manage, orders.process, orders.view-own) are now
+        // managed per-pivot record on pharmacy_pharmacist table.
         $pharmacist = Role::updateOrCreate(['name' => 'pharmacist', 'guard_name' => 'api']);
         $pharmacist->givePermissionTo([
             'profile.manage',
-            'pharmacy.manage',
-            'inventory.manage',
-            'operating-hours.manage',
-            'orders.process',
-            'orders.view-own',
             'proposals.create',
         ]);
 
