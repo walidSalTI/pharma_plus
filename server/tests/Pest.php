@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\Pharmacist;
+use App\Models\Pharmacy;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,7 +20,7 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
- // ->use(RefreshDatabase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -44,7 +47,18 @@ expect()->extend('toBeOne', fn () => $this->toBe(1));
 |
 */
 
-function something(): void
+/**
+ * Create an authenticated pharmacist with a linked pharmacy.
+ *
+ * @return array{user: User, pharmacist: Pharmacist, pharmacy: Pharmacy, token: string}
+ */
+function actingAsPharmacist(): array
 {
-    // ..
+    $user = User::factory()->create();
+    $user->assignRole('pharmacist');
+    $pharmacist = Pharmacist::factory()->create(['user_id' => $user->id]);
+    $pharmacy = Pharmacy::factory()->create(['pharmacist_id' => $pharmacist->id]);
+    $token = $user->createToken('test')->plainTextToken;
+
+    return ['user' => $user, 'pharmacist' => $pharmacist, 'pharmacy' => $pharmacy, 'token' => $token];
 }

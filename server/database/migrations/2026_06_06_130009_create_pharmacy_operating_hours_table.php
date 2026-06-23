@@ -12,10 +12,10 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('pharmacy_id')->constrained('pharmacies')->cascadeOnDelete();
             $table->integer('day_of_week');
-            $table->time('opening_time');
-            $table->time('closing_time');
-            $table->boolean('is_24_hours');
-            $table->boolean('is_closed');
+            $table->time('opening_time')->nullable();
+            $table->time('closing_time')->nullable();
+            $table->boolean('is_24_hours')->default(false);
+            $table->boolean('is_closed')->default(false);
             $table->timestamps();
         });
     }
