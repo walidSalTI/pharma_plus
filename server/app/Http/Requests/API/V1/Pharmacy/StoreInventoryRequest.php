@@ -16,20 +16,22 @@ class StoreInventoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'medication_id' => ['required', 'string', 'exists:medications,id'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'stock' => ['required', 'integer', 'min:0'],
-            'min_stock' => ['nullable', 'integer', 'min:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.medication_id' => ['required', 'string', 'exists:medications,id'],
+            'items.*.price' => ['required', 'numeric', 'min:0'],
+            'items.*.stock' => ['required', 'integer', 'min:0'],
+            'items.*.min_stock' => ['nullable', 'integer', 'min:0'],
         ];
     }
 
     public function bodyParameters(): array
     {
         return [
-            'medication_id' => ['description' => 'UUID of the medication from the central catalog'],
-            'price' => ['description' => 'Retail selling price'],
-            'stock' => ['description' => 'Current stock quantity'],
-            'min_stock' => ['description' => 'Minimum stock threshold for reorder alerts'],
+            'items' => ['description' => 'Array of inventory items to add'],
+            'items[].medication_id' => ['description' => 'UUID of the medication from the central catalog'],
+            'items[].price' => ['description' => 'Retail selling price'],
+            'items[].stock' => ['description' => 'Current stock quantity'],
+            'items[].min_stock' => ['description' => 'Minimum stock threshold for reorder alerts'],
         ];
     }
 }

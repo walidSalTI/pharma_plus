@@ -16,18 +16,22 @@ class UpdateInventoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'price' => ['nullable', 'numeric', 'min:0'],
-            'stock' => ['nullable', 'integer', 'min:0'],
-            'min_stock' => ['nullable', 'integer', 'min:0'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.medication_id' => ['required', 'string', 'exists:medications,id'],
+            'items.*.price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.stock' => ['nullable', 'integer', 'min:0'],
+            'items.*.min_stock' => ['nullable', 'integer', 'min:0'],
         ];
     }
 
     public function bodyParameters(): array
     {
         return [
-            'price' => ['description' => 'Updated retail selling price'],
-            'stock' => ['description' => 'Updated stock quantity'],
-            'min_stock' => ['description' => 'Updated minimum stock threshold'],
+            'items' => ['description' => 'Array of inventory items to update'],
+            'items[].medication_id' => ['description' => 'UUID of the medication to update'],
+            'items[].price' => ['description' => 'Updated retail selling price'],
+            'items[].stock' => ['description' => 'Updated stock quantity'],
+            'items[].min_stock' => ['description' => 'Updated minimum stock threshold'],
         ];
     }
 }

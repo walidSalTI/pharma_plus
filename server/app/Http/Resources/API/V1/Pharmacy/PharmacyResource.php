@@ -26,6 +26,7 @@ class PharmacyResource extends JsonResource
             'staff_count' => $this->staff_pharmacists_count ?? 0,
             'pending_orders_count' => $this->pending_orders_count ?? 0,
             'low_stock_count' => $this->low_stock_count ?? 0,
+            'total_stock' => $this->total_stock ?? 0,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

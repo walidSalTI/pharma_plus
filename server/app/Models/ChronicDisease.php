@@ -17,11 +17,11 @@ class ChronicDisease extends Model
 
     public function chronicRecords(): HasMany
     {
-        return $this->hasMany(ChronicRecord::class, 'chronic_code', 'code');
+        return $this->hasMany(ChronicRecord::class);
     }
 
     public function activeIngredients(): BelongsToMany
     {
-        return $this->belongsToMany(ActiveIngredient::class, 'active_ingredients_chronic_disease', 'chronic_code', 'active_ingredient_id', 'code');
+        return $this->belongsToMany(ActiveIngredient::class, 'active_ingredients_chronic_disease', 'chronic_disease_id', 'active_ingredient_id');
     }
 }

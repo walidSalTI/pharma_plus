@@ -217,20 +217,27 @@ class AuthController extends Controller
 
         $user = $request->user();
 
-        $pharmacist->pharmacies()->pluck('id');
-
         $staffPharmacies = $pharmacist->staffPharmacies()
             ->get()
+            ->toBase() // تحويل إلى Base Collection لتجنب مشاكل الـ Eloquent merge
             ->map(fn (Pharmacy $pharmacy) => [
                 'id' => $pharmacy->id,
                 'name' => $pharmacy->name,
                 'address' => $pharmacy->address,
                 'is_owner' => false,
+                'permissions' => [
+                    'pharmacy_manage' => (bool) $pharmacy->pivot->pharmacy_manage,
+                    'inventory_manage' => (bool) $pharmacy->pivot->inventory_manage,
+                    'operating_hours_manage' => (bool) $pharmacy->pivot->operating_hours_manage,
+                    'orders_process' => (bool) $pharmacy->pivot->orders_process,
+                    'orders_view_own' => (bool) $pharmacy->pivot->orders_view_own,
+                ],
                 'created_at' => $pharmacy->created_at,
             ]);
 
         $ownedPharmacies = $pharmacist->pharmacies()
             ->get()
+            ->toBase() // تحويل إلى Base Collection
             ->map(fn (Pharmacy $pharmacy) => [
                 'id' => $pharmacy->id,
                 'name' => $pharmacy->name,
@@ -239,6 +246,7 @@ class AuthController extends Controller
                 'created_at' => $pharmacy->created_at,
             ]);
 
+        // الآن الـ merge سيعمل بسلاسة لأن الطرفين عبارة عن مصفوفات داخل Base Collection
         $allPharmacies = $ownedPharmacies->merge($staffPharmacies)
             ->unique('id')
             ->sortBy('name')

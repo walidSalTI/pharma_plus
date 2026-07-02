@@ -16,7 +16,7 @@ class ActiveIngredientsChronicDisease extends Model
 
     public function chronicDisease(): BelongsTo
     {
-        return $this->belongsTo(ChronicDisease::class, 'chronic_code', 'code');
+        return $this->belongsTo(ChronicDisease::class);
     }
 
     public function activeIngredient(): BelongsTo

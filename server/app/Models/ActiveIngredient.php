@@ -16,7 +16,7 @@ class ActiveIngredient extends Model
 
     public function chronicDiseases(): BelongsToMany
     {
-        return $this->belongsToMany(ChronicDisease::class, 'active_ingredients_chronic_disease', 'active_ingredient_id', 'chronic_code');
+        return $this->belongsToMany(ChronicDisease::class, 'active_ingredients_chronic_disease', 'active_ingredient_id', 'chronic_disease_id');
     }
 
     public function medications(): BelongsToMany
