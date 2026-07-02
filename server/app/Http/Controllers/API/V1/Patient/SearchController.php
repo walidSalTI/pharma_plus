@@ -105,7 +105,7 @@ class SearchController extends Controller
             ->get();
 
         $uniquePharmacyIds = $nearbyPharmacies->pluck('pharmacy_id')->unique()->toArray();
-        $currentDayName = strtolower(now()->format('l'));
+        $currentDayName = strtolower(now()->format('w'));
 
         $hoursCache = DB::table('pharmacy_operating_hours')
             ->whereIn('pharmacy_id', $uniquePharmacyIds)
