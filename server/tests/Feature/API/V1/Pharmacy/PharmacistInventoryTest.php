@@ -25,23 +25,33 @@ it('lists inventory items', function () {
         ->assertJsonStructure(['data', 'meta']);
 });
 
-it('adds inventory item', function () {
+it('adds inventory items', function () {
     extract(actingAsPharmacist());
-    $medication = Medication::factory()->create();
+    $medication1 = Medication::factory()->create();
+    $medication2 = Medication::factory()->create();
 
     $response = $this->withToken($token)
         ->postJson("/api/v1/pharmacist/pharmacies/{$pharmacy->id}/inventory", [
-            'medication_id' => $medication->id,
-            'price' => 49.99,
-            'stock' => 100,
-            'min_stock' => 10,
+            'items' => [
+                [
+                    'medication_id' => $medication1->id,
+                    'price' => 49.99,
+                    'stock' => 100,
+                    'min_stock' => 10,
+                ],
+                [
+                    'medication_id' => $medication2->id,
+                    'price' => 99.99,
+                    'stock' => 50,
+                ],
+            ],
         ]);
 
     $response->assertStatus(201)
-        ->assertJsonStructure(['data' => ['id', 'medication', 'price', 'stock']]);
+        ->assertJsonCount(2, 'data');
 });
 
-it('prevents duplicate inventory item', function () {
+it('skips duplicate inventory items', function () {
     extract(actingAsPharmacist());
     $medication = Medication::factory()->create();
     PharmacyInventory::factory()->create([
@@ -51,15 +61,56 @@ it('prevents duplicate inventory item', function () {
 
     $response = $this->withToken($token)
         ->postJson("/api/v1/pharmacist/pharmacies/{$pharmacy->id}/inventory", [
-            'medication_id' => $medication->id,
-            'price' => 49.99,
-            'stock' => 50,
+            'items' => [
+                [
+                    'medication_id' => $medication->id,
+                    'price' => 49.99,
+                    'stock' => 50,
+                ],
+            ],
         ]);
 
-    $response->assertStatus(409);
+    $response->assertStatus(200);
+    expect($response->json('skipped'))->toHaveCount(1);
 });
 
-it('updates inventory item', function () {
+it('updates inventory items in bulk', function () {
+    extract(actingAsPharmacist());
+    $medication1 = Medication::factory()->create();
+    $medication2 = Medication::factory()->create();
+    PharmacyInventory::factory()->create([
+        'pharmacy_id' => $pharmacy->id,
+        'medication_id' => $medication1->id,
+        'stock' => 50,
+    ]);
+    PharmacyInventory::factory()->create([
+        'pharmacy_id' => $pharmacy->id,
+        'medication_id' => $medication2->id,
+        'stock' => 30,
+    ]);
+
+    $response = $this->withToken($token)
+        ->putJson("/api/v1/pharmacist/pharmacies/{$pharmacy->id}/inventory", [
+            'items' => [
+                [
+                    'medication_id' => $medication1->id,
+                    'stock' => 200,
+                    'price' => 39.99,
+                ],
+                [
+                    'medication_id' => $medication2->id,
+                    'stock' => 75,
+                ],
+            ],
+        ]);
+
+    $response->assertStatus(200);
+    expect($response->json('data'))->toHaveCount(2);
+    expect($response->json('data.0.stock'))->toBe(200);
+    expect($response->json('data.1.stock'))->toBe(75);
+});
+
+it('updates a single inventory item', function () {
     extract(actingAsPharmacist());
     $inventory = PharmacyInventory::factory()->create([
         'pharmacy_id' => $pharmacy->id,

@@ -35,7 +35,7 @@ class MedicationController extends Controller
             ->when($request->filled('name'), fn ($q) => $q->where('trade_name', 'like', '%'.$request->input('name').'%'))
             ->when($request->filled('active_ingredient'), fn ($q) => $q->whereHas('activeIngredients', fn ($q) => $q->where('ingredient_name_en', 'like', '%'.$request->input('active_ingredient').'%')))
             ->when($request->filled('company'), fn ($q) => $q->whereHas('manufacture', fn ($q) => $q->where('name', 'like', '%'.$request->input('company').'%')))
-            ->paginate(15);
+            ->paginate(30);
 
         return MedicationResource::collection($medicines);
     }

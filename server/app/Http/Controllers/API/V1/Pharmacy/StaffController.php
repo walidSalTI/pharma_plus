@@ -289,6 +289,54 @@ class StaffController extends Controller
     }
 
     /**
+     * Get the authenticated pharmacist's permissions for a pharmacy.
+     *
+     * Three cases:
+     * 1. Owner of the pharmacy → all permissions return true
+     * 2. Staff member → returns their specific pivot permissions
+     * 3. Neither owner nor staff → 403 Access Denied
+     */
+    public function getPermissions(Request $request, Pharmacy $pharmacy): JsonResponse
+    {
+        $this->authorize('viewDashboard', $pharmacy);
+
+        $pharmacist = $request->user()->pharmacist;
+
+        if ($pharmacy->pharmacist_id === $pharmacist->id) {
+            return response()->json([
+                'data' => [
+                    'role' => 'owner',
+                    'permissions' => [
+                        'pharmacy_manage' => true,
+                        'inventory_manage' => true,
+                        'operating_hours_manage' => true,
+                        'orders_process' => true,
+                        'orders_view_own' => true,
+                    ],
+                ],
+            ]);
+        }
+
+        $staffPivot = $pharmacist->staffPharmacies()
+            ->where('pharmacy_id', $pharmacy->id)
+            ->first()
+            ?->pivot;
+
+        return response()->json([
+            'data' => [
+                'role' => 'staff',
+                'permissions' => [
+                    'pharmacy_manage' => $staffPivot?->pharmacy_manage ?? false,
+                    'inventory_manage' => $staffPivot?->inventory_manage ?? false,
+                    'operating_hours_manage' => $staffPivot?->operating_hours_manage ?? false,
+                    'orders_process' => $staffPivot?->orders_process ?? false,
+                    'orders_view_own' => $staffPivot?->orders_view_own ?? false,
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Remove a staff member (FR-PH-6.3).
      *
      * Deletes the staff pharmacist record and their associated user

@@ -40,11 +40,6 @@ class Medication extends Model
         return $this->hasMany(MedicationPatient::class);
     }
 
-    public function medicationRequests(): HasMany
-    {
-        return $this->hasMany(MedicationRequest::class);
-    }
-
     public function pharmacyInventories(): HasMany
     {
         return $this->hasMany(PharmacyInventory::class);

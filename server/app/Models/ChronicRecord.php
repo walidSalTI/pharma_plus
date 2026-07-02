@@ -17,7 +17,7 @@ class ChronicRecord extends Model
 
     public function chronicDisease(): BelongsTo
     {
-        return $this->belongsTo(ChronicDisease::class, 'chronic_code', 'code');
+        return $this->belongsTo(ChronicDisease::class);
     }
 
     public function patient(): BelongsTo

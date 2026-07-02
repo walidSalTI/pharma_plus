@@ -8,6 +8,7 @@ use App\Http\Controllers\API\V1\Pharmacy\ForecastController;
 use App\Http\Controllers\API\V1\Pharmacy\InventoryController;
 use App\Http\Controllers\API\V1\Pharmacy\NotificationController;
 use App\Http\Controllers\API\V1\Pharmacy\OperatingHourController;
+use App\Http\Controllers\API\V1\Pharmacy\OrderController;
 use App\Http\Controllers\API\V1\Pharmacy\ProfileController;
 use App\Http\Controllers\API\V1\Pharmacy\ProposalController;
 use App\Http\Controllers\API\V1\Pharmacy\ReportController;
@@ -51,6 +52,7 @@ Route::prefix('pharmacist')->group(function () {
 
         // Pharmacy management
         Route::post('pharmacy', [ProfileController::class, 'storePharmacy']);
+        Route::get('pharmacies/search', [ProfileController::class, 'searchPharmacies']);
         Route::get('pharmacies/{pharmacy}', [ProfileController::class, 'showPharmacy']);
 
         // ─── Pharmacy-scoped routes (require pharmacy_id) ─────────────
@@ -64,9 +66,11 @@ Route::prefix('pharmacist')->group(function () {
             Route::prefix('inventory')->group(function () {
                 Route::get('/', [InventoryController::class, 'index']);
                 Route::post('/', [InventoryController::class, 'store']);
+                Route::put('/', [InventoryController::class, 'update']);
                 Route::post('bulk-import', [InventoryController::class, 'bulkImport']);
+                Route::get('low-stock', [InventoryController::class, 'lowStock']);
                 Route::get('export', [ReportController::class, 'export']);
-                Route::put('{inventory}', [InventoryController::class, 'update']);
+                Route::put('{inventory}', [InventoryController::class, 'updateSingle']);
                 Route::delete('{inventory}', [InventoryController::class, 'destroy'])->missing(fn () => response()->json(['message' => 'Inventory item not found.'], 404));
             });
 
@@ -94,12 +98,21 @@ Route::prefix('pharmacist')->group(function () {
             // Join Request (FR-PH-6.3) — pharmacist requests to join
             Route::post('join-request', [NotificationController::class, 'sendJoinRequest']);
 
+            // Permissions (FR-PH-6.3) — current pharmacist's permissions
+            Route::get('permissions', [StaffController::class, 'getPermissions']);
+
             // Reviews (FR-PH-7)
             Route::get('reviews', [ReviewController::class, 'index']);
             Route::post('reviews/{review}/reply', [ReviewController::class, 'reply']);
 
             // Reports (FR-PH-8)
             Route::get('reports/monthly', [ReportController::class, 'monthly']);
+
+            // Orders (FR-PH-2.3) — list, filter & status lifecycle
+            Route::prefix('orders')->group(function () {
+                Route::get('/', [OrderController::class, 'index']);
+                Route::patch('{order}/status', [OrderController::class, 'updateStatus']);
+            });
 
         });
 

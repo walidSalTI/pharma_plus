@@ -17,6 +17,15 @@ class PharmacyReview extends Model
 
     protected $table = 'pharmacy_reviews';
 
+    protected $fillable = [
+        'patient_id',
+        'pharmacy_id',
+        'order_id',
+        'rating',
+        'availability_rating',
+        'comment',
+    ];
+
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);

@@ -17,6 +17,14 @@ class PharmacyInventory extends Model
 
     protected $table = 'pharmacy_inventories';
 
+    protected $fillable = [
+        'pharmacy_id',
+        'medication_id',
+        'price',
+        'stock',
+        'min_stock',
+    ];
+
     public function pharmacy(): BelongsTo
     {
         return $this->belongsTo(Pharmacy::class);

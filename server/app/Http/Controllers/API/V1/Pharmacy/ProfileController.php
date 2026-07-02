@@ -32,7 +32,7 @@ class ProfileController extends Controller
      */
     public function show(Request $request, Pharmacy $pharmacy): JsonResponse
     {
-        $this->authorize('manage', $pharmacy);
+        $this->authorize('viewDashboard', $pharmacy);
 
         $pharmacy->load('pharmacyOperatingHours')
             ->loadAvg('pharmacyReviews', 'rating')
@@ -42,6 +42,9 @@ class ProfileController extends Controller
                 'medicationOrders as pending_orders_count' => fn ($q) => $q->where('status', 'pending'),
                 'pharmacyInventories as low_stock_count' => fn ($q) => $q->whereColumn('stock', '<=', 'min_stock'),
             ]);
+
+        $pharmacy->total_stock = $pharmacy->pharmacyInventories()
+            ->sum('stock');
 
         return response()->json([
             'data' => new PharmacyResource($pharmacy),
@@ -113,7 +116,7 @@ class ProfileController extends Controller
         $this->authorize('viewDashboard', $pharmacy);
 
         $pharmacy->load('pharmacyOperatingHours')
-            ->loadCount(['pharmacyInventories', 'medicationOrders', 'pharmacyReviews'])
+            ->loadCount('pharmacyReviews')
             ->loadAvg('pharmacyReviews', 'rating');
 
         $pharmacy->pending_orders_count = $pharmacy->medicationOrders()
@@ -124,9 +127,32 @@ class ProfileController extends Controller
             ->whereColumn('stock', '<=', 'min_stock')
             ->count();
 
+        $pharmacy->total_stock = $pharmacy->pharmacyInventories()
+            ->sum('stock');
+
         return response()->json([
             'data' => new PharmacyResource($pharmacy),
         ]);
+    }
+
+    /**
+     * Search pharmacies by name (FR-PH-6.1).
+     *
+     * Returns all pharmacies whose name matches the given query string.
+     * Accessible by any authenticated pharmacist. Not scoped to a single
+     * pharmacy — searches across the entire system.
+     */
+    public function searchPharmacies(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'query' => ['required', 'string', 'min:1', 'max:255'],
+        ]);
+
+        $pharmacies = Pharmacy::where('name', 'like', '%'.$validated['query'].'%')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(PharmacyResource::collection($pharmacies)->response()->getData(true));
     }
 
     /**
