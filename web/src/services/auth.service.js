@@ -1,13 +1,21 @@
-import api from "./config";
+import { api } from "./api";
 
 export const authApi = {
-  async register(data) {
-    const response = await api.post("/register", data);
-    return response.data;
-  },
-
-  async login(credentials) {
-    const response = await api.post("/login", credentials);
-    return response.data;
+  register: (data) => api("POST", "/api/v1/pharmacist/register", { body: data }),
+  login: (credentials) => api("POST", "/api/v1/pharmacist/login", { body: credentials }),
+  dashboard: () => api("GET", "/api/v1/pharmacist/dashboard"),
+  verify: (data) => api("POST", "/api/v1/pharmacist/verify", { body: data }),
+  verificationStatus: () => api("GET", "/api/v1/pharmacist/verification-status"),
+  updateProfile: (data) => {
+    const formData = new FormData();
+    if (data.f_name !== undefined) formData.append("f_name", data.f_name);
+    if (data.l_name !== undefined) formData.append("l_name", data.l_name);
+    if (data.email !== undefined) formData.append("email", data.email);
+    if (data.phone_number !== undefined) formData.append("phone_number", data.phone_number);
+    if (data.age !== undefined) formData.append("age", String(data.age));
+    if (data.gender !== undefined) formData.append("gender", data.gender);
+    if (data.location !== undefined) formData.append("location", data.location);
+    formData.append("_method", "PUT");
+    return api("POST", "/api/v1/pharmacist/update-profile", { body: formData });
   },
 };
