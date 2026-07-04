@@ -1,0 +1,519 @@
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import tw from "twrnc";
+import { addToWallet } from "@/services/walletService";
+import { getMyDiseases } from "@/services/diseaseService";
+import { saveMedications } from "@/services/medicationStorage";
+import { scheduleMedicationReminders } from "@/services/notificationService";
+import { useLanguage } from "@/src/i18n/LanguageContext";
+import { useAppTheme } from "@/src/theme/ThemeContext";
+import { webShadow } from "@/constants/shadow";
+import { useResponsive } from "@/constants/responsive";
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const to24Hour = (timeStr) => {
+  if (!timeStr) return "12:00";
+  const [time, modifier] = timeStr.trim().split(" ");
+  let [hours, minutes] = time.split(":").map(Number);
+  if (modifier === "PM" && hours !== 12) hours += 12;
+  if (modifier === "AM" && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
+const formatTime = (date) =>
+  date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+
+export default function AddMedication() {
+  const router = useRouter();
+  const { t } = useLanguage();
+  const { theme, isDark } = useAppTheme();
+  const { hs, vs, fontScale, isTablet } = useResponsive();
+  const { selectedMeds } = useLocalSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [chronicDiseases, setChronicDiseases] = useState([]);
+
+  const [medications, setMedications] = useState(() => {
+    try {
+      const parsed = JSON.parse(selectedMeds || "[]");
+      return parsed.map((med) => ({
+        medication_id: String(med.id),
+        name: med.name || med.trade_name,
+        dosage: "",
+        available_pills: "",
+        state: "permanent",
+        instructions_before: "",
+        instructions_after: "",
+        frequency: 1,
+        times: ["08:00 AM"],
+        selectedDays: [0, 1, 2, 3, 4, 5, 6],
+        chronic_id: null,
+      }));
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const diseases = await getMyDiseases();
+        setChronicDiseases(Array.isArray(diseases) ? diseases : []);
+      } catch {
+        setChronicDiseases([]);
+      }
+    })();
+  }, []);
+
+  const [showPicker, setShowPicker] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(null);
+  const [activeTimeIndex, setActiveTimeIndex] = useState(null);
+  const [tempDate, setTempDate] = useState(new Date());
+
+  const generateTimes = (count) => {
+    const times = [];
+    const interval = 24 / count;
+    for (let i = 0; i < count; i++) {
+      const date = new Date();
+      date.setHours(8 + i * interval, 0, 0, 0);
+      times.push(formatTime(date));
+    }
+    return times;
+  };
+
+  const updateMed = (index, updates) => {
+    setMedications((prev) =>
+      prev.map((m, i) => (i === index ? { ...m, ...updates } : m)),
+    );
+  };
+
+  const toggleDay = (medIndex, day) => {
+    setMedications((prev) =>
+      prev.map((m, i) => {
+        if (i !== medIndex) return m;
+        const days = m.selectedDays.includes(day)
+          ? m.selectedDays.filter((d) => d !== day)
+          : [...m.selectedDays, day].sort();
+        return { ...m, selectedDays: days };
+      }),
+    );
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const reminders = [];
+
+      for (const med of medications) {
+        if (!med.dosage.trim()) {
+          Alert.alert(t("error"), `${t("dosage")} ${med.name} مطلوب`);
+          setLoading(false);
+          return;
+        }
+
+        const allDays = med.selectedDays.length === 7;
+        const frequency = allDays ? "daily" : "specific_days";
+
+        const schedules = allDays
+          ? med.times.map((t) => ({ dose_time: to24Hour(t) }))
+          : med.times.flatMap((t) => {
+              const time24 = to24Hour(t);
+              return med.selectedDays.map((day) => ({
+                dose_time: time24,
+                day_of_week: day,
+              }));
+            });
+
+        const payload = {
+          medication_id: String(med.medication_id),
+          state: med.state,
+          chronic_id: med.chronic_id ? parseInt(med.chronic_id, 10) : null,
+          dosage: med.dosage,
+          available_pills: parseInt(med.available_pills, 10) || 0,
+          frequency: frequency,
+          instructions_before: med.instructions_before.trim() || null,
+          instructions_after: med.instructions_after.trim() || null,
+          is_active: true,
+          schedules: schedules,
+        };
+
+        await addToWallet(payload);
+
+        reminders.push({
+          medication_id: String(med.medication_id),
+          name: med.name,
+          dosage: med.dosage,
+          is_active: true,
+          schedules,
+        });
+      }
+
+      await saveMedications(reminders);
+      await scheduleMedicationReminders(reminders);
+
+      Alert.alert(t("saved"), t("addedToWallet"));
+      router.replace("/(patient)/MedicationsScreen");
+    } catch (e) {
+      Alert.alert(t("error"), e.message || t("failedSave"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stringToDate = (timeStr) => {
+    const [time, modifier] = timeStr.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
+    if (modifier === "PM" && hours !== 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  };
+
+  const handleTimeChangePicker = (event, selectedDate) => {
+    if (Platform.OS === "android") setShowPicker(false);
+    if (!selectedDate || event.type === "dismissed") return;
+
+    setMedications((prev) =>
+      prev.map((med, i) => {
+        if (i === activeIndex) {
+          const newTimes = [...med.times];
+          newTimes[activeTimeIndex] = formatTime(selectedDate);
+          return { ...med, times: newTimes };
+        }
+        return med;
+      }),
+    );
+  };
+
+  const handleFrequencyChange = (index, delta) => {
+    setMedications((prev) =>
+      prev.map((m, i) => {
+        if (i !== index) return m;
+        const next = Math.min(4, Math.max(1, (m.frequency || 1) + delta));
+        return { ...m, frequency: next, times: generateTimes(next) };
+      }),
+    );
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.surface }}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View
+          style={[
+            tw`flex-row items-center`,
+            {
+              paddingHorizontal: hs(24),
+              backgroundColor: isDark ? theme.surface : "rgba(255,255,255,0.8)",
+              minHeight: vs(64),
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[{ width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLow }]}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={hs(22)} color={theme.primary} />
+          </TouchableOpacity>
+          <Text style={[{ fontSize: fontScale(20), fontWeight: "700", marginLeft: hs(16) }, { color: theme.onSurface }]}>
+            {t("addSchedule")}
+          </Text>
+          <Text style={[{ fontSize: fontScale(14), fontWeight: "700", marginLeft: "auto" }, { color: theme.onSurfaceVariant }]}>
+            {medications.length} {medications.length === 1 ? t("medication") : t("medications")}
+          </Text>
+        </View>
+
+        <ScrollView contentContainerStyle={{ paddingHorizontal: isTablet ? hs(120) : hs(24), paddingBottom: vs(224), paddingTop: vs(16) }}>
+          {medications.map((med, index) => (
+            <View
+              key={index}
+              style={[
+                { marginBottom: vs(20), borderRadius: hs(16), padding: hs(20) },
+                { backgroundColor: theme.surfaceContainerLowest },
+              ]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12), marginBottom: vs(20) }}>
+                <View style={[{ width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLow }]}>
+                  <MaterialCommunityIcons name="pill" size={hs(20)} color={theme.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[{ fontSize: fontScale(18), fontWeight: "700" }, { color: theme.onSurface }]}>
+                    {med.name}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: hs(12) }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                    {t("dosage")}
+                  </Text>
+                  <TextInput
+                    style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
+                    placeholder={t("dosagePlaceholder")}
+                    placeholderTextColor="#acb3b6"
+                    value={med.dosage}
+                    onChangeText={(v) => updateMed(index, { dosage: v })}
+                  />
+                </View>
+                <View style={{ width: hs(96) }}>
+                  <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                    {t("pills")}
+                  </Text>
+                  <TextInput
+                    style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
+                    placeholder={t("qty")}
+                    placeholderTextColor="#acb3b6"
+                    keyboardType="numeric"
+                    value={med.available_pills}
+                    onChangeText={(v) => updateMed(index, { available_pills: v })}
+                  />
+                </View>
+              </View>
+
+              <View style={{ marginTop: vs(16) }}>
+                <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                  {t("type")}
+                </Text>
+                <View style={{ flexDirection: "row", gap: hs(12) }}>
+                  {["permanent", "temporary"].map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => updateMed(index, { state: type })}
+                      style={[
+                        { flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center" },
+                        med.state === type
+                          ? { backgroundColor: theme.primary }
+                          : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          { fontSize: fontScale(12), fontWeight: "700", textTransform: "uppercase" },
+                          med.state === type ? { color: "white" } : { color: theme.onSurfaceVariant },
+                        ]}
+                      >
+                        {t(type)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {chronicDiseases.length > 0 && (
+                <View style={{ marginTop: vs(16) }}>
+                  <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                    {t("chronicConditions")}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {chronicDiseases.map((d) => (
+                      <TouchableOpacity
+                        key={d.id}
+                        onPress={() => updateMed(index, { chronic_id: med.chronic_id === d.chronic_disease_id ? null : d.chronic_disease_id })}
+                        style={[
+                          { paddingHorizontal: hs(16), paddingVertical: vs(8), borderRadius: hs(24), marginRight: hs(8) },
+                          med.chronic_id === d.chronic_disease_id
+                            ? { backgroundColor: theme.primary }
+                            : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            { fontSize: fontScale(12), fontWeight: "700" },
+                            { color: med.chronic_id === d.chronic_disease_id ? "white" : theme.onSurfaceVariant },
+                          ]}
+                        >
+                          {d.name_en || d.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              <View style={{ marginTop: vs(16) }}>
+                <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                  {t("instrBefore")}
+                </Text>
+                <TextInput
+                  style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
+                  placeholder={t("instrPlaceholder")}
+                  placeholderTextColor="#acb3b6"
+                  value={med.instructions_before}
+                  onChangeText={(v) => updateMed(index, { instructions_before: v })}
+                />
+              </View>
+
+              <View style={{ marginTop: vs(16) }}>
+                <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                  {t("instrAfter")}
+                </Text>
+                <TextInput
+                  style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
+                  placeholder={t("instrPlaceholder")}
+                  placeholderTextColor="#acb3b6"
+                  value={med.instructions_after}
+                  onChangeText={(v) => updateMed(index, { instructions_after: v })}
+                />
+              </View>
+
+              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12), marginLeft: hs(4), marginTop: vs(20) }, { color: theme.onSurfaceVariant }]}>
+                {t("dailyFreq")}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12), marginBottom: vs(16) }}>
+                <TouchableOpacity
+                  onPress={() => handleFrequencyChange(index, -1)}
+                  disabled={med.frequency <= 1}
+                  style={[
+                    { width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.primary },
+                    {
+                      backgroundColor: med.frequency <= 1 ? theme.surfaceContainerLow : theme.surfaceContainerLowest,
+                      opacity: med.frequency <= 1 ? 0.4 : 1,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="minus" size={hs(20)} color={theme.primary} />
+                </TouchableOpacity>
+
+                <View style={[{ flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center" }, { backgroundColor: theme.primary }]}>
+                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                    {med.frequency} {t("xPerDay")}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => handleFrequencyChange(index, 1)}
+                  disabled={med.frequency >= 4}
+                  style={[
+                    { width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.primary },
+                    {
+                      backgroundColor: med.frequency >= 4 ? theme.surfaceContainerLow : theme.surfaceContainerLowest,
+                      opacity: med.frequency >= 4 ? 0.4 : 1,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="plus" size={hs(20)} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                {t("daysOfWeek")}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(8), marginBottom: vs(16) }}>
+                {DAYS.map((day, di) => (
+                  <TouchableOpacity
+                    key={day}
+                    onPress={() => toggleDay(index, di)}
+                    style={[
+                      { width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" },
+                      med.selectedDays.includes(di)
+                        ? { backgroundColor: theme.primary }
+                        : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        { fontSize: fontScale(12), fontWeight: "700" },
+                        { color: med.selectedDays.includes(di) ? "white" : theme.onSurfaceVariant },
+                      ]}
+                    >
+                      {day.substring(0, 2)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
+                {t("times")}
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(12) }}>
+                {med.times.map((time, tidx) => (
+                  <TouchableOpacity
+                    key={tidx}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setActiveIndex(index);
+                      setActiveTimeIndex(tidx);
+                      setTempDate(stringToDate(time));
+                      setShowPicker(true);
+                    }}
+                    style={[
+                      { flexDirection: "row", alignItems: "center", gap: hs(8), paddingHorizontal: hs(16), paddingVertical: vs(12), borderRadius: hs(12) },
+                      { backgroundColor: theme.surfaceContainerLow, minWidth: hs(150) },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="clock-outline" size={hs(18)} color={theme.primary} />
+                    <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.primary }]}>{time}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {showPicker && (
+          <DateTimePicker
+            key={`${activeIndex}-${activeTimeIndex}`}
+            value={tempDate}
+            mode="time"
+            is24Hour={false}
+            display={Platform.OS === "ios" ? "spinner" : "clock"}
+            onChange={handleTimeChangePicker}
+          />
+        )}
+
+        {medications.length > 0 && (
+          <View
+            style={[
+              tw`absolute bottom-0 left-0 right-0 pt-4`,
+              {
+                paddingHorizontal: hs(24),
+                paddingBottom: vs(32),
+                backgroundColor: isDark ? theme.surface : "rgba(255,255,255,0.95)",
+                borderTopLeftRadius: hs(24),
+                borderTopRightRadius: hs(24),
+                ...webShadow({ elevation: 12, color: "#0b6a6a", opacity: 0.06, radius: 12, offsetY: -6 }),
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={loading}
+              style={[
+                { paddingVertical: vs(16), borderRadius: hs(12), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), backgroundColor: theme.primary },
+                {
+                  ...webShadow({ elevation: 6, color: theme.primary, radius: 10, offsetY: 6 }),
+                  opacity: loading ? 0.7 : 1,
+                },
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="check-bold" size={hs(20)} color="white" />
+                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                    {t("saveSchedule")}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
+  );
+}
