@@ -1,12 +1,93 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import { Platform } from 'react-native';
 
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
+
+export const lightTheme = {
+  primary: "#0b6a6a",
+  primaryDim: "#005d5d",
+  primaryContainer: "#a2f0f0",
+  onPrimary: "#e0fffe",
+  onPrimaryContainer: "#005c5c",
+  surface: "#f8fafb",
+  onSurface: "#2c3436",
+  onSurfaceVariant: "#596063",
+  surfaceContainerLow: "#f0f4f6",
+  surfaceContainer: "#eaeff0",
+  surfaceContainerHigh: "#e3e9eb",
+  surfaceContainerHighest: "#dce4e6",
+  surfaceContainerLowest: "#ffffff",
+  secondary: "#4a6464",
+  secondaryContainer: "#cce8e8",
+  secondaryDim: "#3e5858",
+  onSecondary: "#e2fefe",
+  onSecondaryContainer: "#3d5656",
+  onSecondaryFixed: "#2b4444",
+  onSecondaryFixedVariant: "#476060",
+  tertiary: "#3a647d",
+  tertiaryContainer: "#b0daf8",
+  onTertiary: "#f5f9ff",
+  onTertiaryContainer: "#224d66",
+  error: "#a83836",
+  errorContainer: "#fa746f",
+  onError: "#fff7f6",
+  onErrorContainer: "#6e0a12",
+  outline: "#747c7e",
+  outlineVariant: "#acb3b6",
+  background: "#f8fafb",
+  onBackground: "#2c3436",
+  inverseSurface: "#0b0f10",
+  inversePrimary: "#a8f6f5",
+  inverseOnSurface: "#9a9d9e",
+  surfaceTint: "#0b6a6a",
+  surfaceDim: "#d4dbde",
+  surfaceBright: "#f8fafb",
+  surfaceVariant: "#dce4e6",
+};
+
+export const darkTheme = {
+  primary: "#4bbaba",
+  primaryDim: "#3aa0a0",
+  primaryContainer: "#064040",
+  onPrimary: "#003030",
+  onPrimaryContainer: "#a2f0f0",
+  surface: "#0f1724",
+  onSurface: "#e2e8f0",
+  onSurfaceVariant: "#94a3b8",
+  surfaceContainerLow: "#1e293b",
+  surfaceContainer: "#1e293b",
+  surfaceContainerHigh: "#334155",
+  surfaceContainerHighest: "#475569",
+  surfaceContainerLowest: "#0f1724",
+  secondary: "#7ab0b0",
+  secondaryContainer: "#1a3a3a",
+  secondaryDim: "#3e5858",
+  onSecondary: "#003030",
+  onSecondaryContainer: "#cce8e8",
+  onSecondaryFixed: "#2b4444",
+  onSecondaryFixedVariant: "#476060",
+  tertiary: "#94a3b8",
+  tertiaryContainer: "#1e293b",
+  onTertiary: "#f5f9ff",
+  onTertiaryContainer: "#cbd5e1",
+  error: "#f87171",
+  errorContainer: "#7f1d1d",
+  onError: "#fff7f6",
+  onErrorContainer: "#fecaca",
+  outline: "#475569",
+  outlineVariant: "#334155",
+  background: "#0f1724",
+  onBackground: "#e2e8f0",
+  inverseSurface: "#e2e8f0",
+  inversePrimary: "#0b6a6a",
+  inverseOnSurface: "#0f1724",
+  surfaceTint: "#4bbaba",
+  surfaceDim: "#0f1724",
+  surfaceBright: "#1e293b",
+  surfaceVariant: "#334155",
+};
+
+export const theme = lightTheme;
 
 export const Colors = {
   light: {
@@ -29,13 +110,9 @@ export const Colors = {
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
