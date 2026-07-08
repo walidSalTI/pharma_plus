@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignUuid('doctor_id')->constrained('doctors')->cascadeOnDelete();
             $table->dateTime('scheduled_at');
             $table->text('notes')->nullable();
-            $table->enum('status', ['planned', 'completed', 'cancelled']);
+            $table->enum('status', ['upcoming', 'completed', 'cancelled']);
             $table->boolean('is_reminded');
             $table->timestamps();
 

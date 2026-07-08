@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\API\V1\Pharmacy\StorePharmacyRequest;
 use App\Http\Requests\API\V1\Pharmacy\UpdateProfileRequest;
 use App\Http\Requests\API\V1\Pharmacy\UpdateUserProfileRequest;
+use App\Http\Resources\API\V1\Pharmacy\PharmacistProfileResource;
 use App\Http\Resources\API\V1\Pharmacy\PharmacyResource;
 use App\Models\Pharmacy;
 use Illuminate\Http\JsonResponse;
@@ -196,6 +197,22 @@ class ProfileController extends Controller
             'message' => 'Pharmacy created successfully.',
             'data' => new PharmacyResource($pharmacy),
         ], 201);
+    }
+
+    /**
+     * Get the pharmacist's personal profile.
+     *
+     * Returns the authenticated pharmacist's user information
+     * along with their pharmacist-specific details (verification
+     * status, syndicate card).
+     */
+    public function showProfile(Request $request): JsonResponse
+    {
+        $user = $request->user()->load('pharmacist');
+
+        return response()->json([
+            'data' => new PharmacistProfileResource($user),
+        ]);
     }
 
     /**

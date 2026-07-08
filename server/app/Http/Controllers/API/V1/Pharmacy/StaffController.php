@@ -74,7 +74,10 @@ class StaffController extends Controller
 
         $pharmacist = Pharmacist::where('id', $query)
             ->orWhereHas('user', function ($q) use ($query) {
-                $q->where('email', $query);
+                $q->where('email', $query)
+                  ->orWhere('f_name', 'LIKE', "%{$query}%")
+                  ->orWhere('l_name', 'LIKE', "%{$query}%")
+                  ->orWhereRaw("CONCAT(f_name, ' ', l_name) LIKE ?", ["%{$query}%"]);
             })
             ->with('user')
             ->first();
@@ -82,7 +85,7 @@ class StaffController extends Controller
         if (! $pharmacist) {
             return response()->json([
                 'found' => false,
-                'message' => 'No pharmacist found with the given ID or email.',
+                'message' => 'No pharmacist found with the given ID, email, or name.',
             ]);
         }
 

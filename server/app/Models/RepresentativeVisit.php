@@ -23,4 +23,9 @@ class RepresentativeVisit extends Model
     {
         return $this->belongsTo(ScientificRep::class, 'rep_id');
     }
+
+    public function weeklySchedule(): BelongsTo
+    {
+        return $this->belongsTo(WeeklySchedule::class, 'schedule_id');
+    }
 }

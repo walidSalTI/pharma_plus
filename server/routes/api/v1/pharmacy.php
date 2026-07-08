@@ -48,6 +48,7 @@ Route::prefix('pharmacist')->group(function () {
         Route::get('verification-status', [AuthController::class, 'verificationStatus']);
 
         // Profile (FR-PH-6.1) — user profile (not pharmacy-scoped)
+        Route::get('profile', [ProfileController::class, 'showProfile']);
         Route::put('update-profile', [ProfileController::class, 'updateProfile']);
 
         // Pharmacy management
@@ -71,6 +72,8 @@ Route::prefix('pharmacist')->group(function () {
                 Route::get('low-stock', [InventoryController::class, 'lowStock']);
                 Route::get('export', [ReportController::class, 'export']);
                 Route::put('{inventory}', [InventoryController::class, 'updateSingle']);
+                Route::patch('{inventory}/increment', [InventoryController::class, 'incrementStock']);
+                Route::patch('{inventory}/decrement', [InventoryController::class, 'decrementStock']);
                 Route::delete('{inventory}', [InventoryController::class, 'destroy'])->missing(fn () => response()->json(['message' => 'Inventory item not found.'], 404));
             });
 

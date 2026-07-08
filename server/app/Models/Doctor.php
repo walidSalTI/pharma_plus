@@ -15,6 +15,26 @@ class Doctor extends Model
 
     protected $table = 'doctors';
 
+    protected $fillable = [
+        'user_id',
+        'specialization',
+        'syndicate_card_image',
+        'doctor_secret_key',
+        'verification_status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'verification_status' => 'string',
+        ];
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verification_status === 'approved';
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -33,5 +53,10 @@ class Doctor extends Model
     public function representativeVisits(): HasMany
     {
         return $this->hasMany(RepresentativeVisit::class);
+    }
+
+    public function doctorWorkplaces(): HasMany
+    {
+        return $this->hasMany(DoctorWorkplace::class);
     }
 }

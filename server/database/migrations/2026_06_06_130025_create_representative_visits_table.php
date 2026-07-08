@@ -12,6 +12,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('doctor_id')->constrained('doctors')->cascadeOnDelete();
             $table->foreignUuid('rep_id')->constrained('scientific_reps')->cascadeOnDelete();
+            $table->foreignUuid('schedule_id')->constrained('weekly_schedules')->cascadeOnDelete();
             $table->decimal('latitude', 10, 7);
             $table->decimal('longitude', 10, 7);
             $table->timestamp('scanned_at');
