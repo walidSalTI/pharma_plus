@@ -199,6 +199,70 @@ class InventoryController extends Controller
     }
 
     /**
+     * Increment stock for an inventory item.
+     *
+     * Adds the given quantity to the current stock level.
+     * Requires `inventory_manage` permission.
+     */
+    public function incrementStock(Request $request, Pharmacy $pharmacy, PharmacyInventory $inventory): JsonResponse
+    {
+        if ($inventory->pharmacy_id !== $pharmacy->id) {
+            return response()->json(['message' => 'Inventory item not found for this pharmacy.'], 404);
+        }
+
+        $this->authorize('manageInventory', $pharmacy);
+
+        $validated = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $inventory->increment('stock', $validated['quantity']);
+        $inventory->update(['last_updated' => now()]);
+        $inventory->load('medication');
+
+        return response()->json([
+            'message' => "Stock increased by {$validated['quantity']}.",
+            'data' => new InventoryResource($inventory),
+        ]);
+    }
+
+    /**
+     * Decrement stock for an inventory item.
+     *
+     * Subtracts the given quantity from the current stock level.
+     * Ensures stock does not drop below zero.
+     * Requires `inventory_manage` permission.
+     */
+    public function decrementStock(Request $request, Pharmacy $pharmacy, PharmacyInventory $inventory): JsonResponse
+    {
+        if ($inventory->pharmacy_id !== $pharmacy->id) {
+            return response()->json(['message' => 'Inventory item not found for this pharmacy.'], 404);
+        }
+
+        $this->authorize('manageInventory', $pharmacy);
+
+        $validated = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        if ($inventory->stock < $validated['quantity']) {
+            return response()->json([
+                'message' => 'Insufficient stock. Requested quantity exceeds available stock.',
+                'available_stock' => $inventory->stock,
+            ], 400);
+        }
+
+        $inventory->decrement('stock', $validated['quantity']);
+        $inventory->update(['last_updated' => now()]);
+        $inventory->load('medication');
+
+        return response()->json([
+            'message' => "Stock decreased by {$validated['quantity']}.",
+            'data' => new InventoryResource($inventory),
+        ]);
+    }
+
+    /**
      * Remove an inventory item (FR-PH-2.3).
      *
      * Permanently deletes the stock entry from the pharmacy's inventory.

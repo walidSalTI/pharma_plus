@@ -1,7 +1,7 @@
 <?php
 
 it('returns a successful response', function () {
-    $response = $this->get('/');
+    $response = $this->getJson('/api/v1/medications');
 
     $response->assertStatus(200);
 });

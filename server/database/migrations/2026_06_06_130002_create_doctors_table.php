@@ -12,8 +12,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('specialization');
-            $table->string('syndicate_card_image');
-            $table->string('doctor_uuid')->unique();
+            $table->string('syndicate_card_image')->nullable();
             $table->timestamps();
 
             $table->index('specialization', 'idx_doctors_specialization');

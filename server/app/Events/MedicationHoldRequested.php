@@ -6,22 +6,23 @@ namespace App\Events;
 
 use App\Models\MedicationOrder;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels; // 1. تأكد من استدعاء هذا السطر
 
 class MedicationHoldRequested implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets;
+    // 2. قم بإضافة SerializesModels هنا داخل الكلاس
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public readonly MedicationOrder $order,
+        public MedicationOrder $order, // بدون readonly وبدون تحدييدات صارمة أخرى
     ) {}
-
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('pharmacy.'.$this->order->pharmacy_id),
+            new Channel('pharmacy.' . $this->order->pharmacy_id),
         ];
     }
 
@@ -32,19 +33,32 @@ class MedicationHoldRequested implements ShouldBroadcast
 
     public function broadcastWith(): array
     {
-        return [
-            'order_id' => $this->order->id,
-            'invoice_number' => $this->order->invoice_number,
-            'patient_name' => $this->order->patient?->user?->f_name.' '.$this->order->patient?->user?->l_name,
-            'total_price' => (float) $this->order->total_price,
-            'status' => $this->order->status,
-            'items' => $this->order->items->map(fn ($item) => [
-                'medication_id' => $item->medication_id,
-                'trade_name' => $item->medication?->trade_name,
-                'quantity' => $item->quantity,
-                'price' => (float) $item->price,
-            ]),
-            'created_at' => $this->order->created_at->toISOString(),
-        ];
+        // 3. لضمان عدم حدوث خطأ، نقوم بعمل محاكاة آمنة للاسم حتى لو كانت العلاقات فارغة
+        $patient = $this->order->patient;
+        $user = $patient?->user;
+        $patientName = $user ? ($user->f_name . ' ' . $user->l_name) : 'Unknown Patient';
+
+        try {
+            return [
+                'order_id' => $this->order->id,
+                'invoice_number' => $this->order->invoice_number,
+                'patient_name' => $patientName,
+                'total_price' => (float) $this->order->total_price,
+                'status' => $this->order->status,
+                'items' => $this->order->items->map(fn($item) => [
+                    'medication_id' => $item->medication_id,
+                    'trade_name' => $item->medication?->trade_name ?? 'N/A',
+                    'quantity' => $item->quantity,
+                    'price' => (float) $item->price,
+                ]),
+                'created_at' => $this->order->created_at?->toISOString(),
+            ];
+        } catch (\Throwable $e) {
+            // سيقوم هذا السطر بكتابة الخطأ بوضوح في الـ Log
+            \Log::error('Broadcasting failed in MedicationHoldRequested: ' . $e->getMessage());
+
+            // إرجاع مصفوفة فارغة مؤقتاً حتى لا يموت السيرفر وتعرف المشكلة
+            return ['error' => $e->getMessage()];
+        }
     }
 }

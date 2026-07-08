@@ -78,6 +78,7 @@ class RoleAndPermissionSeeder extends Seeder
 
         // Doctor
         Permission::updateOrCreate(['name' => 'qr.view', 'guard_name' => 'api']); // View dynamic QR code
+        Permission::updateOrCreate(['name' => 'workplaces.manage', 'guard_name' => 'api']); // Manage doctor workplaces
 
         // Specialist-specific
         Permission::updateOrCreate(['name' => 'medication-ingredients.verify', 'guard_name' => 'api']); // Verify ingredient ratios
@@ -144,6 +145,7 @@ class RoleAndPermissionSeeder extends Seeder
         $doctor->givePermissionTo([
             'profile.manage',
             'qr.view',
+            'workplaces.manage',
         ]);
 
         // --- Pharmacist ---
