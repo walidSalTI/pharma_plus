@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Notifications\StaffInvitationNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Delegate Staff Access Control (FR-PH-6.3).
@@ -75,9 +76,9 @@ class StaffController extends Controller
         $pharmacist = Pharmacist::where('id', $query)
             ->orWhereHas('user', function ($q) use ($query) {
                 $q->where('email', $query)
-                  ->orWhere('f_name', 'LIKE', "%{$query}%")
-                  ->orWhere('l_name', 'LIKE', "%{$query}%")
-                  ->orWhereRaw("CONCAT(f_name, ' ', l_name) LIKE ?", ["%{$query}%"]);
+                    ->orWhere('f_name', 'LIKE', "%{$query}%")
+                    ->orWhere('l_name', 'LIKE', "%{$query}%")
+                    ->orWhereRaw("CONCAT(f_name, ' ', l_name) LIKE ?", ["%{$query}%"]);
             })
             ->with('user')
             ->first();
@@ -198,48 +199,48 @@ class StaffController extends Controller
             'permissions.orders_view_own' => ['nullable', 'boolean'],
         ]);
 
-        $user = User::create([
-            'f_name' => $validated['f_name'],
-            'l_name' => $validated['l_name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'phone_number' => $validated['phone_number'],
-            'age' => 0,
-            'gender' => 'male',
-            'location' => '',
-        ]);
+        $staff = DB::transaction(function () use ($validated, $pharmacy): Pharmacist {
+            $user = User::create([
+                'f_name' => $validated['f_name'],
+                'l_name' => $validated['l_name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'phone_number' => $validated['phone_number'],
+                'age' => 0,
+                'gender' => 'male',
+                'location' => '',
+            ]);
 
-        $user->assignRole('pharmacist');
+            $user->assignRole('pharmacist');
 
-        $staff = Pharmacist::create([
-            'user_id' => $user->id,
-            'syndicate_card' => null,
-        ]);
+            $staff = Pharmacist::create([
+                'user_id' => $user->id,
+                'syndicate_card' => null,
+            ]);
 
-        $pivotData = [];
-        if (isset($validated['permissions'])) {
-            $pivotData = array_intersect_key($validated['permissions'], array_flip([
-                'pharmacy_manage',
-                'inventory_manage',
-                'operating_hours_manage',
-                'orders_process',
-                'orders_view_own',
-            ]));
-        }
+            $pivotData = [];
+            if (isset($validated['permissions'])) {
+                $pivotData = array_intersect_key($validated['permissions'], array_flip([
+                    'pharmacy_manage',
+                    'inventory_manage',
+                    'operating_hours_manage',
+                    'orders_process',
+                    'orders_view_own',
+                ]));
+            }
 
-        // 1. ربط الصيدلية بالموظف مع الصلاحيات في جدول الـ Pivot
-        $staff->staffPharmacies()->attach($pharmacy->id, $pivotData);
+            $staff->staffPharmacies()->attach($pharmacy->id, $pivotData);
 
-        // 2. تحميل العلاقات الأساسية
+            return $staff;
+        });
+
         $staff->load(['user', 'staffPharmacies']);
 
-        // 3. استخراج كائن الـ Pivot وضبطه مباشرة على كائن الـ staff لتجنب الـ MissingAttributeException
         $currentPharmacyRelation = $staff->staffPharmacies->firstWhere('id', $pharmacy->id);
         if ($currentPharmacyRelation && $currentPharmacyRelation->pivot) {
             $staff->setRelation('pivot', $currentPharmacyRelation->pivot);
         }
 
-        // فك التعليق عن الـ Resource ليعمل بداخلها الفحص الآمن بنجاح
         return response()->json([
             'message' => 'Staff account created and assigned successfully.',
             'data' => new StaffResource($staff),

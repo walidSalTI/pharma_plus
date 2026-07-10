@@ -11,6 +11,7 @@ use App\Notifications\JoinRequestNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -109,9 +110,10 @@ class NotificationController extends Controller
             'orders_process', 'orders_view_own',
         ]));
 
-        $pharmacist->staffPharmacies()->attach($pharmacy->id, $pivotData);
-
-        $notification->markAsRead();
+        DB::transaction(function () use ($pharmacist, $pharmacy, $pivotData, $notification): void {
+            $pharmacist->staffPharmacies()->attach($pharmacy->id, $pivotData);
+            $notification->markAsRead();
+        });
 
         return response()->json([
             'message' => 'Staff invitation accepted successfully.',
@@ -268,9 +270,10 @@ class NotificationController extends Controller
             ]))
             : [];
 
-        $requester->staffPharmacies()->attach($pharmacy->id, $pivotData);
-
-        $notification->markAsRead();
+        DB::transaction(function () use ($requester, $pharmacy, $pivotData, $notification): void {
+            $requester->staffPharmacies()->attach($pharmacy->id, $pivotData);
+            $notification->markAsRead();
+        });
 
         return response()->json([
             'message' => 'Join request accepted successfully.',

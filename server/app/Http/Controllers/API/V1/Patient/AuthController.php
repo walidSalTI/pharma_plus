@@ -11,6 +11,7 @@ use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -19,27 +20,31 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
-        $user = User::create([
-            'f_name' => $validated['f_name'],
-            'l_name' => $validated['l_name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'phone_number' => $validated['phone_number'],
-            'age' => $validated['age'],
-            'gender' => $validated['gender'],
-            'location' => $validated['location'] ?? null,
-        ]);
+        [$user, $patient, $token] = DB::transaction(function () use ($validated): array {
+            $user = User::create([
+                'f_name' => $validated['f_name'],
+                'l_name' => $validated['l_name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'phone_number' => $validated['phone_number'],
+                'age' => $validated['age'],
+                'gender' => $validated['gender'],
+                'location' => $validated['location'] ?? null,
+            ]);
 
-        $user->assignRole('patient');
+            $user->assignRole('patient');
 
-        $patient = Patient::create([
-            'user_id' => $user->id,
-            'blood_type' => $validated['blood_type'] ?? null,
-            'latitude' => $validated['latitude'],
-            'longitude' => $validated['longitude'],
-        ]);
+            $patient = Patient::create([
+                'user_id' => $user->id,
+                'blood_type' => $validated['blood_type'] ?? null,
+                'latitude' => $validated['latitude'],
+                'longitude' => $validated['longitude'],
+            ]);
 
-        $token = $user->createToken('patient-api-token')->plainTextToken;
+            $token = $user->createToken('patient-api-token')->plainTextToken;
+
+            return [$user, $patient, $token];
+        });
 
         return response()->json([
             'message' => 'Patient registered successfully.',

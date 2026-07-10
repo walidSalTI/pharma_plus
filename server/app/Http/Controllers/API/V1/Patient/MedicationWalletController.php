@@ -15,6 +15,7 @@ use App\Models\MedicationSchedule;
 use App\Services\MedicalSafetyEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -121,25 +122,29 @@ class MedicationWalletController extends Controller
             }
         }
 
-        $medicationPatient = MedicationPatient::create([
-            'medication_id' => $validated['medication_id'],
-            'patient_id' => $patient->id,
-            'state' => $validated['state'],
-            'chronic_id' => $validated['chronic_id'] ?? null,
-            'dosage' => $validated['dosage'],
-            'available_pills' => $validated['available_pills'] ?? null,
-            'frequency' => $validated['frequency'],
-            'refill_risk' => false,
-            'instructions_before' => $validated['instructions_before'] ?? null,
-            'instructions_after' => $validated['instructions_after'] ?? null,
-            'start_date' => $validated['start_date'] ?? null,
-            'end_date' => $validated['end_date'] ?? null,
-            'is_active' => $validated['is_active'],
-        ]);
+        $medicationPatient = DB::transaction(function () use ($validated, $patient): MedicationPatient {
+            $medicationPatient = MedicationPatient::create([
+                'medication_id' => $validated['medication_id'],
+                'patient_id' => $patient->id,
+                'state' => $validated['state'],
+                'chronic_id' => $validated['chronic_id'] ?? null,
+                'dosage' => $validated['dosage'],
+                'available_pills' => $validated['available_pills'] ?? null,
+                'frequency' => $validated['frequency'],
+                'refill_risk' => false,
+                'instructions_before' => $validated['instructions_before'] ?? null,
+                'instructions_after' => $validated['instructions_after'] ?? null,
+                'start_date' => $validated['start_date'] ?? null,
+                'end_date' => $validated['end_date'] ?? null,
+                'is_active' => $validated['is_active'],
+            ]);
 
-        if ($validated['frequency'] !== 'as_needed' && ! empty($validated['schedules'])) {
-            $this->generateSchedules($medicationPatient, $validated['schedules']);
-        }
+            if ($validated['frequency'] !== 'as_needed' && ! empty($validated['schedules'])) {
+                $this->generateSchedules($medicationPatient, $validated['schedules']);
+            }
+
+            return $medicationPatient;
+        });
 
         $medicationPatient->load(['medication', 'medicationSchedules']);
 
@@ -166,24 +171,26 @@ class MedicationWalletController extends Controller
 
         $validated = $request->validated();
 
-        $fieldsToUpdate = [];
-        foreach (['state', 'dosage', 'available_pills', 'frequency', 'instructions_before', 'instructions_after', 'start_date', 'end_date', 'is_active'] as $field) {
-            if (array_key_exists($field, $validated)) {
-                $fieldsToUpdate[$field] = $validated[$field];
+        DB::transaction(function () use ($validated, $medicationPatient): void {
+            $fieldsToUpdate = [];
+            foreach (['state', 'dosage', 'available_pills', 'frequency', 'instructions_before', 'instructions_after', 'start_date', 'end_date', 'is_active'] as $field) {
+                if (array_key_exists($field, $validated)) {
+                    $fieldsToUpdate[$field] = $validated[$field];
+                }
             }
-        }
 
-        if ($fieldsToUpdate !== []) {
-            $medicationPatient->update($fieldsToUpdate);
-        }
-
-        if (! empty($validated['schedules'])) {
-            $medicationPatient->medicationSchedules()->delete();
-
-            if ($medicationPatient->frequency !== 'as_needed') {
-                $this->generateSchedules($medicationPatient, $validated['schedules']);
+            if ($fieldsToUpdate !== []) {
+                $medicationPatient->update($fieldsToUpdate);
             }
-        }
+
+            if (! empty($validated['schedules'])) {
+                $medicationPatient->medicationSchedules()->delete();
+
+                if ($medicationPatient->frequency !== 'as_needed') {
+                    $this->generateSchedules($medicationPatient, $validated['schedules']);
+                }
+            }
+        });
 
         $medicationPatient->load(['medication', 'medicationSchedules']);
 

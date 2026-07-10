@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\VerifiedDoctor;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
-            'doctor.verified' => \App\Http\Middleware\VerifiedDoctor::class,
+            'doctor.verified' => VerifiedDoctor::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

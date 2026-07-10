@@ -12,6 +12,7 @@ use App\Models\MedicationPatient;
 use App\Models\MedicationSchedule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Intake Logging & Smart Cabinet Tracker (FR-P-8.3, FR-P-8.4, FR-P-8.5).
@@ -53,37 +54,41 @@ class MedicationLogController extends Controller
 
         $medicationPatient = $schedule->medicationPatient;
 
-        $log = MedicationLog::create([
-            'schedule_id' => $schedule->id,
-            'status' => $validated['status'],
-            'reason' => $validated['reason'] ?? null,
-            'taken_at' => $validated['taken_at'],
-        ]);
+        [$log, $response] = DB::transaction(function () use ($validated, $schedule, $medicationPatient): array {
+            $log = MedicationLog::create([
+                'schedule_id' => $schedule->id,
+                'status' => $validated['status'],
+                'reason' => $validated['reason'] ?? null,
+                'taken_at' => $validated['taken_at'],
+            ]);
 
-        $response = [
-            'message' => 'Intake logged successfully.',
-            'data' => new MedicationLogResource($log),
-        ];
+            $response = [
+                'message' => 'Intake logged successfully.',
+                'data' => new MedicationLogResource($log),
+            ];
 
-        if ($validated['status'] === 'taken' && $medicationPatient->available_pills !== null) {
-            $newPillCount = max(0, $medicationPatient->available_pills - 1);
-            $medicationPatient->decrement('available_pills');
+            if ($validated['status'] === 'taken' && $medicationPatient->available_pills !== null) {
+                $newPillCount = max(0, $medicationPatient->available_pills - 1);
+                $medicationPatient->decrement('available_pills');
 
-            $dailyDoseCount = $this->calculateDailyDoseCount($medicationPatient);
+                $dailyDoseCount = $this->calculateDailyDoseCount($medicationPatient);
 
-            if ($dailyDoseCount > 0 && $newPillCount < ($dailyDoseCount * 3)) {
-                $medicationPatient->update(['refill_risk' => true]);
+                if ($dailyDoseCount > 0 && $newPillCount < ($dailyDoseCount * 3)) {
+                    $medicationPatient->update(['refill_risk' => true]);
 
-                $response['warning'] = 'depletion_alert_triggered';
-                $response['depletion'] = [
-                    'remaining_pills' => $newPillCount,
-                    'estimated_days_left' => $dailyDoseCount > 0 ? round($newPillCount / $dailyDoseCount, 1) : 0,
-                    'daily_dose_count' => $dailyDoseCount,
-                ];
-            } elseif ($medicationPatient->refill_risk) {
-                $medicationPatient->update(['refill_risk' => false]);
+                    $response['warning'] = 'depletion_alert_triggered';
+                    $response['depletion'] = [
+                        'remaining_pills' => $newPillCount,
+                        'estimated_days_left' => $dailyDoseCount > 0 ? round($newPillCount / $dailyDoseCount, 1) : 0,
+                        'daily_dose_count' => $dailyDoseCount,
+                    ];
+                } elseif ($medicationPatient->refill_risk) {
+                    $medicationPatient->update(['refill_risk' => false]);
+                }
             }
-        }
+
+            return [$log, $response];
+        });
 
         return response()->json($response, 201);
     }

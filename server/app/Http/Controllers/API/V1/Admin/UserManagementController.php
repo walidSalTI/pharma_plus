@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\API\V1\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\API\V1\Admin\StoreUserRequest;
 use App\Http\Requests\API\V1\Admin\UpdateUserRequest;
 use App\Http\Resources\API\V1\Admin\UserResource;
 use App\Models\User;

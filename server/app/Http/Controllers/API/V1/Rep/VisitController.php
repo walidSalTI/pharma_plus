@@ -53,13 +53,13 @@ class VisitController extends Controller
         if (! $insideGeofence) {
             return response()->json(['message' => 'Outside geofence.'], 422);
         }
-        
-        $schedule = WeeklySchedule::where('id',$validated['schedule_id'])
+
+        $schedule = WeeklySchedule::where('id', $validated['schedule_id'])
             ->where('rep_id', $rep->id)
             ->where('doctor_id', $doctor->id)
             ->where('status', 'upcoming')
             ->first();
-        
+
         if (! $schedule) {
             return response()->json(['message' => 'No scheduled visit.'], 422);
         }

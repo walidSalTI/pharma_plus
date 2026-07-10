@@ -119,9 +119,11 @@ class RepController extends Controller
             return response()->json(['message' => 'Representative not found.'], 404);
         }
 
-        $rep->load('user');
-        $rep->user->tokens()->delete();
-        $rep->user->removeRole('scientific_rep');
+        DB::transaction(function () use ($rep): void {
+            $rep->load('user');
+            $rep->user->tokens()->delete();
+            $rep->user->removeRole('scientific_rep');
+        });
 
         return response()->json(['message' => 'Representative suspended successfully.']);
     }

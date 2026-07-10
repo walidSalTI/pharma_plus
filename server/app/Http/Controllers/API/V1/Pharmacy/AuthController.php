@@ -12,6 +12,7 @@ use App\Models\Pharmacy;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
@@ -41,31 +42,35 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
-        $syndicateCardPath = null;
-        if ($request->hasFile('syndicate_card')) {
-            $syndicateCardPath = $request->file('syndicate_card')->store('syndicate_cards', 'public');
-        }
+        [$user, $pharmacist, $token] = DB::transaction(function () use ($request, $validated): array {
+            $syndicateCardPath = null;
+            if ($request->hasFile('syndicate_card')) {
+                $syndicateCardPath = $request->file('syndicate_card')->store('syndicate_cards', 'public');
+            }
 
-        $user = User::create([
-            'f_name' => $validated['f_name'],
-            'l_name' => $validated['l_name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'phone_number' => $validated['phone_number'],
-            'age' => $validated['age'],
-            'gender' => $validated['gender'],
-            'location' => $validated['location'] ?? null,
-        ]);
+            $user = User::create([
+                'f_name' => $validated['f_name'],
+                'l_name' => $validated['l_name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'phone_number' => $validated['phone_number'],
+                'age' => $validated['age'],
+                'gender' => $validated['gender'],
+                'location' => $validated['location'] ?? null,
+            ]);
 
-        $user->assignRole('pharmacist');
+            $user->assignRole('pharmacist');
 
-        $pharmacist = Pharmacist::create([
-            'user_id' => $user->id,
-            'syndicate_card' => $syndicateCardPath,
-            'verification_status' => $syndicateCardPath ? 'pending' : 'unverified',
-        ]);
+            $pharmacist = Pharmacist::create([
+                'user_id' => $user->id,
+                'syndicate_card' => $syndicateCardPath,
+                'verification_status' => $syndicateCardPath ? 'pending' : 'unverified',
+            ]);
 
-        $token = $user->createToken('pharmacist-api-token')->plainTextToken;
+            $token = $user->createToken('pharmacist-api-token')->plainTextToken;
+
+            return [$user, $pharmacist, $token];
+        });
 
         return response()->json([
             'message' => 'Pharmacist registered successfully.',

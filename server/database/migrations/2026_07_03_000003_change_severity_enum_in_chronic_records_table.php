@@ -25,7 +25,7 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::connection()->getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE chronic_records MODIFY severity VARCHAR(255) NULL");
+            DB::statement('ALTER TABLE chronic_records MODIFY severity VARCHAR(255) NULL');
         } else {
             Schema::table('chronic_records', function (Blueprint $table) {
                 $table->string('severity')->nullable()->change();

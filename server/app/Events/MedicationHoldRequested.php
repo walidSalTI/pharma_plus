@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Events;
 
 use App\Models\MedicationOrder;
-use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels; // 1. تأكد من استدعاء هذا السطر
+use Illuminate\Queue\SerializesModels;
+use Log;
+use Throwable; // 1. تأكد من استدعاء هذا السطر
 
 class MedicationHoldRequested implements ShouldBroadcast
 {
@@ -19,10 +21,11 @@ class MedicationHoldRequested implements ShouldBroadcast
     public function __construct(
         public MedicationOrder $order, // بدون readonly وبدون تحدييدات صارمة أخرى
     ) {}
+
     public function broadcastOn(): array
     {
         return [
-            new Channel('pharmacy.' . $this->order->pharmacy_id),
+            new Channel('pharmacy.'.$this->order->pharmacy_id),
         ];
     }
 
@@ -36,7 +39,7 @@ class MedicationHoldRequested implements ShouldBroadcast
         // 3. لضمان عدم حدوث خطأ، نقوم بعمل محاكاة آمنة للاسم حتى لو كانت العلاقات فارغة
         $patient = $this->order->patient;
         $user = $patient?->user;
-        $patientName = $user ? ($user->f_name . ' ' . $user->l_name) : 'Unknown Patient';
+        $patientName = $user ? ($user->f_name.' '.$user->l_name) : 'Unknown Patient';
 
         try {
             return [
@@ -45,7 +48,7 @@ class MedicationHoldRequested implements ShouldBroadcast
                 'patient_name' => $patientName,
                 'total_price' => (float) $this->order->total_price,
                 'status' => $this->order->status,
-                'items' => $this->order->items->map(fn($item) => [
+                'items' => $this->order->items->map(fn ($item) => [
                     'medication_id' => $item->medication_id,
                     'trade_name' => $item->medication?->trade_name ?? 'N/A',
                     'quantity' => $item->quantity,
@@ -53,9 +56,9 @@ class MedicationHoldRequested implements ShouldBroadcast
                 ]),
                 'created_at' => $this->order->created_at?->toISOString(),
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // سيقوم هذا السطر بكتابة الخطأ بوضوح في الـ Log
-            \Log::error('Broadcasting failed in MedicationHoldRequested: ' . $e->getMessage());
+            Log::error('Broadcasting failed in MedicationHoldRequested: '.$e->getMessage());
 
             // إرجاع مصفوفة فارغة مؤقتاً حتى لا يموت السيرفر وتعرف المشكلة
             return ['error' => $e->getMessage()];
