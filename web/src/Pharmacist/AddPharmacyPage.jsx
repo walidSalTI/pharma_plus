@@ -47,9 +47,7 @@ export default function AddPharmacyPage() {
           setOperatingHours(pharmacy.operating_hours);
         }
       })
-      .catch(() => {
-        console.warn("No existing pharmacy found");
-      })
+      .catch(() => {})
       .finally(() => setIsLoading(false));
   }, [isEdit, selectedPharmacy?.id]);
 

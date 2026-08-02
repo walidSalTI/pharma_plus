@@ -22,8 +22,7 @@ export default function FinancePage() {
       setLoading(true);
       const res = await expenseService.getAll(pharmacyId);
       setExpenses(res.data?.data ?? res.data ?? []);
-    } catch (err) {
-      console.error("Failed to load expenses", err);
+    } catch {
       toast.error(t("app.error"));
     } finally {
       setLoading(false);
@@ -39,7 +38,6 @@ export default function FinancePage() {
       setFormOpen(false);
       fetchExpenses();
     } catch (err) {
-      console.error("Create expense failed", err);
       toast.error(err?.response?.data?.message || t("app.error"));
       throw err;
     }
@@ -53,7 +51,6 @@ export default function FinancePage() {
       setFormOpen(false);
       fetchExpenses();
     } catch (err) {
-      console.error("Update expense failed", err);
       toast.error(err?.response?.data?.message || t("app.error"));
       throw err;
     }
@@ -65,8 +62,7 @@ export default function FinancePage() {
       await expenseService.remove(pharmacyId, exp.id);
       toast.success(t("app.deleted"));
       fetchExpenses();
-    } catch (err) {
-      console.error("Delete expense failed", err);
+    } catch {
       toast.error(t("app.error"));
     }
   };

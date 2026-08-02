@@ -4,8 +4,7 @@ export async function lookupByBarcode(barcode) {
   try {
     const item = await db.inventory.where('barcode').equals(barcode).first();
     return item || null;
-  } catch (error) {
-    console.error('Local barcode lookup error:', error);
+  } catch {
     return null;
   }
 }
@@ -43,39 +42,33 @@ export async function recordOfflineSale(saleData) {
       return { success: true, saleId };
     });
   } catch (error) {
-    console.error('Offline sale transaction failed:', error);
     return { success: false, error: error.message };
   }
 }
 
 export async function cacheInventory(items, pharmacyId) {
-  try {
-    const timestamp = new Date().toISOString();
-    await db.transaction('rw', db.inventory, async () => {
-      await db.inventory.where('pharmacyId').equals(pharmacyId).delete();
-      const mapped = items.map(item => ({
-        id: item.medication_id ?? item.id,
-        pharmacyId,
-        barcode: item.medication?.barcode ?? '',
-        name: item.medication?.trade_name ?? '',
-        price: item.price ?? 0,
-        stock: item.stock ?? 0,
-        min_stock: item.min_stock ?? 0,
-        cachedAt: timestamp,
-        raw: item,
-      }));
-      await db.inventory.bulkAdd(mapped);
-    });
-  } catch (error) {
-    console.error('Cache inventory error:', error);
-  }
+  const timestamp = new Date().toISOString();
+  await db.transaction('rw', db.inventory, async () => {
+    await db.inventory.where('pharmacyId').equals(pharmacyId).delete();
+    const mapped = items.map(item => ({
+      id: item.medication_id ?? item.id,
+      pharmacyId,
+      barcode: item.medication?.barcode ?? '',
+      name: item.medication?.trade_name ?? '',
+      price: item.price ?? 0,
+      stock: item.stock ?? 0,
+      min_stock: item.min_stock ?? 0,
+      cachedAt: timestamp,
+      raw: item,
+    }));
+    await db.inventory.bulkAdd(mapped);
+  });
 }
 
 export async function getCachedInventory(pharmacyId) {
   try {
     return await db.inventory.where('pharmacyId').equals(pharmacyId).toArray();
-  } catch (error) {
-    console.error('Get cached inventory error:', error);
+  } catch {
     return [];
   }
 }
@@ -94,45 +87,35 @@ export async function getOldestCacheTime(pharmacyId) {
 }
 
 export async function cacheDashboard(pharmacyId, data) {
-  try {
-    await db.dashboardCache.put({
-      pharmacyId,
-      data,
-      cachedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Cache dashboard error:', error);
-  }
+  await db.dashboardCache.put({
+    pharmacyId,
+    data,
+    cachedAt: new Date().toISOString(),
+  });
 }
 
 export async function getCachedDashboard(pharmacyId) {
   try {
     const record = await db.dashboardCache.get(pharmacyId);
     return record?.data ?? null;
-  } catch (error) {
-    console.error('Get cached dashboard error:', error);
+  } catch {
     return null;
   }
 }
 
 export async function cacheEmployees(pharmacyId, data) {
-  try {
-    await db.employeeCache.put({
-      pharmacyId,
-      data,
-      cachedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Cache employees error:', error);
-  }
+  await db.employeeCache.put({
+    pharmacyId,
+    data,
+    cachedAt: new Date().toISOString(),
+  });
 }
 
 export async function getCachedEmployees(pharmacyId) {
   try {
     const record = await db.employeeCache.get(pharmacyId);
     return record?.data ?? [];
-  } catch (error) {
-    console.error('Get cached employees error:', error);
+  } catch {
     return [];
   }
 }

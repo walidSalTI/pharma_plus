@@ -78,8 +78,8 @@ export default function BarcodeScanner({ open, onScan, onClose }) {
         const nextState = !torchOn;
         await track.applyConstraints({ advanced: [{ torch: nextState }] });
         setTorchOn(nextState);
-      } catch (err) {
-        console.warn('Torch error:', err);
+      } catch {
+        /* torch unsupported */
       }
     }
   }, [torchOn]);
@@ -150,8 +150,6 @@ export default function BarcodeScanner({ open, onScan, onClose }) {
           setTimeout(() => { lastCodeRef.current = null; }, 2000);
           isProcessingRef.current = false;
         }
-      } catch (err) {
-        console.debug('Read error:', err);
       } finally {
         isProcessingRef.current = false;
       }

@@ -110,8 +110,6 @@ export default function PharmacyForm({ initialData, onSubmit, submitLabel, isSub
           setErrors((prev) => ({ ...prev, fullAddress: "" }));
         }
       }
-    } catch (error) {
-      console.error("Error fetching address:", error);
     } finally {
       setIsLocating(false);
     }

@@ -95,7 +95,6 @@ export default function PharmacistLayout() {
 
     const channelName = `pharmacy.${pharmacyId}`;
     const channel = echo.private(channelName);
-    channel.listen(".order.created", (e) => console.log("ORDER EVENT:", e));
     channel.listen(".medication.hold.requested", () => {
       toast.success(t("orders.newOrder", "New Order"), {
         onClick: () => navigate("/Dashboard/Requests"),

@@ -2,24 +2,8 @@ import { db } from './db';
 
 export const BaseUrl = import.meta.env.VITE_API_URL || "";
 
-function log(method, path, opts, response, durationMs) {
-  const { body, params } = opts || {};
-  const isFormData = body instanceof FormData;
-  const groupLabel = `${method} ${path}`;
-  console.group(`%c${groupLabel}`, 'font-weight:bold;color:#0b6a6a');
-  console.log('Duration:', `${durationMs}ms`);
-  if (params) console.log('Params:', params);
-  console.log('Body:', isFormData ? '(FormData)' : body);
-  if (response) {
-    console.log('Status:', response.status);
-    console.log('Response:', response.data);
-  }
-  console.groupEnd();
-}
-
 export async function api(method, path, opts = {}) {
   const { body, params, signal } = opts;
-  const start = performance.now();
 
   const url = BaseUrl ? new URL(BaseUrl + path) : new URL(path, window.location.origin);
   if (params) {
@@ -37,22 +21,14 @@ export async function api(method, path, opts = {}) {
 
   const payload = body ? (isFormData ? body : JSON.stringify(body)) : undefined;
 
-  try {
-    const res = await fetch(url, { method, headers, body: payload, signal });
-    const data = await res.json();
-    log(method, path, opts, { status: res.status, data }, Math.round(performance.now() - start));
-    if (!res.ok) {
-      const err = new Error(data?.message || "Request failed");
-      err.response = { data, status: res.status };
-      throw err;
-    }
-    return data;
-  } catch (err) {
-    if (err.name !== 'AbortError' && !err.response) {
-      log(method, path, opts, { status: 0, data: err.message }, Math.round(performance.now() - start));
-    }
+  const res = await fetch(url, { method, headers, body: payload, signal });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data?.message || "Request failed");
+    err.response = { data, status: res.status };
     throw err;
   }
+  return data;
 }
 
 export async function offlineApi(method, path, opts = {}) {

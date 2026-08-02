@@ -20,7 +20,6 @@ export function createEcho(token) {
       },
     });
   } catch {
-    console.warn("Echo/Reverb init failed — real-time features disabled");
     const noopChannel = { listen: () => noopChannel, notification: () => noopChannel };
     return {
       private: () => noopChannel,
