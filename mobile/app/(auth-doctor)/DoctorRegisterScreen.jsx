@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import tw from "twrnc";
 import { CustomSelect, InputField } from "@/components/FormInputs";
+import LocationPickerModal from "@/components/LocationPickerModal";
 import { useDoctorRegisterForm } from "@/hooks/useDoctorRegisterForm";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
@@ -36,6 +37,10 @@ export default function DoctorRegisterScreen() {
     updateWorkplaceField,
     addWorkplace,
     removeWorkplace,
+    setWorkplaceLocation,
+    showLocationPicker,
+    setShowLocationPicker,
+    locationLoading,
     genderModal,
     setGenderModal,
     specializationModal,
@@ -123,13 +128,13 @@ export default function DoctorRegisterScreen() {
           contentContainerStyle={{ paddingHorizontal: isTablet ? hs(120) : hs(24), paddingBottom: vs(40) }}
         >
           {currentStep === 1 && (
-            <StepPersonalInfo form={form} updateField={updateField} errors={errors} genderModal={genderModal} setGenderModal={setGenderModal} specializationModal={specializationModal} setSpecializationModal={setSpecializationModal} SPECIALIZATIONS={SPECIALIZATIONS} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />
+            <StepPersonalInfo form={form} updateField={updateField} errors={errors} locationLoading={locationLoading} genderModal={genderModal} setGenderModal={setGenderModal} specializationModal={specializationModal} setSpecializationModal={setSpecializationModal} SPECIALIZATIONS={SPECIALIZATIONS} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />
           )}
           {currentStep === 2 && (
             <StepCredentials syndicateImage={syndicateImage} setSyndicateImage={setSyndicateImage} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />
           )}
           {currentStep === 3 && (
-            <StepWorkplaces workplaces={workplaces} currentWorkplace={currentWorkplace} updateWorkplaceField={updateWorkplaceField} addWorkplace={addWorkplace} removeWorkplace={removeWorkplace} workplaceTypeModal={workplaceTypeModal} setWorkplaceTypeModal={setWorkplaceTypeModal} WORKPLACE_TYPES={WORKPLACE_TYPES} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />
+            <StepWorkplaces workplaces={workplaces} currentWorkplace={currentWorkplace} updateWorkplaceField={updateWorkplaceField} addWorkplace={addWorkplace} removeWorkplace={removeWorkplace} showLocationPicker={showLocationPicker} setShowLocationPicker={setShowLocationPicker} workplaceTypeModal={workplaceTypeModal} setWorkplaceTypeModal={setWorkplaceTypeModal} WORKPLACE_TYPES={WORKPLACE_TYPES} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />
           )}
         </ScrollView>
 
@@ -171,11 +176,18 @@ export default function DoctorRegisterScreen() {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+      <LocationPickerModal
+        visible={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={(lat, lng) => setWorkplaceLocation(lat, lng)}
+        initialLatitude={currentWorkplace.latitude}
+        initialLongitude={currentWorkplace.longitude}
+      />
     </KeyboardAvoidingView>
   );
 }
 
-function StepPersonalInfo({ form, updateField, errors, genderModal, setGenderModal, specializationModal, setSpecializationModal, SPECIALIZATIONS, theme, hs, vs, fontScale, t }) {
+function StepPersonalInfo({ form, updateField, errors, locationLoading, genderModal, setGenderModal, specializationModal, setSpecializationModal, SPECIALIZATIONS, theme, hs, vs, fontScale, t }) {
   return (
     <View style={{ gap: vs(8) }}>
       <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8) }, { color: theme.onSurfaceVariant }]}>
@@ -210,7 +222,14 @@ function StepPersonalInfo({ form, updateField, errors, genderModal, setGenderMod
         </View>
       </View>
 
-      <InputField label={t("location")} icon="map-marker-outline" placeholder={t("cityAddress")} onChangeText={(v) => updateField("location", v)} />
+      <View>
+        <InputField label={t("location")} icon="map-marker-outline" placeholder={t("cityAddress")} value={form.location} onChangeText={(v) => updateField("location", v)} editable={!locationLoading} />
+        {locationLoading && (
+          <View style={{ position: "absolute", right: hs(16), top: vs(38) }}>
+            <ActivityIndicator size="small" color={theme.primary} />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -239,7 +258,7 @@ function StepCredentials({ syndicateImage, setSyndicateImage, theme, hs, vs, fon
       </Text>
 
       {syndicateImage ? (
-        <Image source={{ uri: syndicateImage.uri }} style={{ width: "100%", height: vs(200), borderRadius: hs(16) }} resizeMode="cover" />
+        <Image source={{ uri: syndicateImage }} style={{ width: "100%", height: vs(200), borderRadius: hs(16) }} resizeMode="cover" />
       ) : null}
 
       <TouchableOpacity
@@ -281,7 +300,7 @@ function StepCredentials({ syndicateImage, setSyndicateImage, theme, hs, vs, fon
   );
 }
 
-function StepWorkplaces({ workplaces, currentWorkplace, updateWorkplaceField, addWorkplace, removeWorkplace, workplaceTypeModal, setWorkplaceTypeModal, WORKPLACE_TYPES, theme, hs, vs, fontScale, t }) {
+function StepWorkplaces({ workplaces, currentWorkplace, updateWorkplaceField, addWorkplace, removeWorkplace, showLocationPicker, setShowLocationPicker, workplaceTypeModal, setWorkplaceTypeModal, WORKPLACE_TYPES, theme, hs, vs, fontScale, t }) {
   return (
     <View style={{ gap: vs(16) }}>
       <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8) }, { color: theme.onSurfaceVariant }]}>
@@ -293,14 +312,15 @@ function StepWorkplaces({ workplaces, currentWorkplace, updateWorkplaceField, ad
 
         <CustomSelect label={t("workplaceType")} value={currentWorkplace.place_type} placeholder={t("selectPlaceholder")} options={WORKPLACE_TYPES} onSelect={(v) => updateWorkplaceField("place_type", v)} visible={workplaceTypeModal} setVisible={setWorkplaceTypeModal} />
 
-        <View style={{ flexDirection: "row", gap: hs(12) }}>
-          <View style={{ flex: 1 }}>
-            <InputField label={t("latitude")} icon="latitude" placeholder="33.5138" keyboardType="decimal-pad" value={currentWorkplace.latitude} onChangeText={(v) => updateWorkplaceField("latitude", v)} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <InputField label={t("longitude")} icon="longitude" placeholder="36.2765" keyboardType="decimal-pad" value={currentWorkplace.longitude} onChangeText={(v) => updateWorkplaceField("longitude", v)} />
-          </View>
-        </View>
+        <TouchableOpacity
+          onPress={() => setShowLocationPicker(true)}
+          style={{ flexDirection: "row", alignItems: "center", gap: hs(8), paddingVertical: vs(14), paddingHorizontal: hs(16), borderRadius: hs(12), borderWidth: 1, borderColor: theme.outlineVariant, backgroundColor: theme.surfaceContainerLowest }}
+        >
+          <MaterialCommunityIcons name="map-marker-plus" size={hs(20)} color={theme.primary} />
+          <Text style={{ fontSize: fontScale(14), fontWeight: "600", color: currentWorkplace.latitude ? theme.onSurface : theme.onSurfaceVariant }}>
+            {currentWorkplace.latitude ? `${t("latitude")}: ${Number(currentWorkplace.latitude).toFixed(4)}, ${t("longitude")}: ${Number(currentWorkplace.longitude).toFixed(4)}` : t("pickLocation")}
+          </Text>
+        </TouchableOpacity>
 
         <InputField label={t("geofenceRadius")} icon="radius-outline" placeholder="50" keyboardType="number-pad" value={currentWorkplace.radius_meters} onChangeText={(v) => updateWorkplaceField("radius_meters", v)} />
 

@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -18,6 +18,9 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { webShadow } from "@/constants/shadow";
 import { useResponsive } from "@/constants/responsive";
+import { useInteractionCheck } from "@/hooks/useInteractionCheck";
+import InteractionAlertModal from "@/components/InteractionAlertModal";
+import ErrorState from "@/components/ErrorState";
 
 export default function BrowseMedications() {
   const router = useRouter();
@@ -32,7 +35,16 @@ export default function BrowseMedications() {
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const {
+    checkAndConfirm,
+    checking,
+    payload: interactionPayload,
+    visible: interactionVisible,
+    onProceed,
+    onCancel,
+  } = useInteractionCheck();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -40,7 +52,7 @@ export default function BrowseMedications() {
   }, []);
 
   const fetchPage = useCallback(async (pageNum, query, append = false) => {
-    if (pageNum === 1) setLoading(true);
+    if (pageNum === 1) { setLoading(true); setError(false); }
     else setLoadingMore(true);
     try {
       const params = { page: pageNum };
@@ -61,6 +73,7 @@ export default function BrowseMedications() {
       }
     } catch {
       if (mountedRef.current) {
+        setError(true);
         if (!append) setMedications([]);
       }
     } finally {
@@ -89,7 +102,7 @@ export default function BrowseMedications() {
     fetchPage(page + 1, search, true);
   };
 
-  const toggle = (med) => {
+  const toggle = useCallback((med) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(med.id)) {
@@ -99,11 +112,26 @@ export default function BrowseMedications() {
       }
       return next;
     });
-  };
+  }, []);
 
   const selectedMeds = medications.filter((m) => selectedIds.has(m.id));
 
-  const renderItem = ({ item }) => {
+  // Run the drug-interaction / chronic-disease safety check before allowing the
+  // patient to proceed to the dosage setup page. Rank 0 proceeds silently;
+  // Rank 1/2 opens a warning modal. If the check itself cannot run (offline /
+  // backend unavailable) we fail closed: an explicit warning is shown and the
+  // patient may only proceed at their own risk.
+  const handleAddSelected = async () => {
+    const names = selectedMeds.map((m) => m.trade_name).filter(Boolean);
+    const proceed = await checkAndConfirm(names);
+    if (!proceed) return;
+    router.push({
+      pathname: "/AddMedication",
+      params: { selectedMeds: JSON.stringify(selectedMeds) },
+    });
+  };
+
+  const renderItem = useCallback(({ item }) => {
     const isSelected = selectedIds.has(item.id);
     const ingredient = item.active_ingredients?.[0];
     const ratio = ingredient?.active_ratio?.[0] || "";
@@ -143,7 +171,7 @@ export default function BrowseMedications() {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [selectedIds, theme, isDark, hs, vs, fontScale, toggle]);
 
   const renderFooter = () => {
     if (!loadingMore) return null;
@@ -164,6 +192,14 @@ export default function BrowseMedications() {
         <Text style={[{ fontSize: fontScale(14), marginTop: vs(16) }, { color: theme.onSurfaceVariant }]}>
           {t("loadingMeds")}
         </Text>
+      </View>
+    );
+  }
+
+  if (error && medications.length === 0) {
+    return (
+      <View style={[tw`flex-1 justify-center`, { backgroundColor: theme.surface }]}>
+        <ErrorState message={t("couldNotLoad")} onRetry={() => fetchPage(1, search, false)} />
       </View>
     );
   }
@@ -206,6 +242,9 @@ export default function BrowseMedications() {
                 uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfLhIlW0Y-iIAP6lRAJVihBzpDweIPutQwgS8d_uwfMAB2zAg33hzNqQKyP1mo_hmGmyP_KTgssrm8tiJ88EaI5vpkuw-dsBYnU5b_j6tnnqRmycqBAFqGCwV_opyUHrPGEH7YCGYRHW8_z0t2i4ksfFIQ_R6sg-7_FZccayXYLRcgwv6bSzF7JMKqN4pxRC7Ou7aXM362L1e3plCV1SfqaqeSYbn1iEpuZT7QgtNtZNSy3JS09Okj8NoWq7qu0r5u0Npdv_CKN1o",
               }}
               style={{ width: hs(28), height: hs(28), borderRadius: hs(14) }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
           </View>
         </View>
@@ -242,6 +281,10 @@ export default function BrowseMedications() {
           showsVerticalScrollIndicator={false}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
+          initialNumToRender={12}
+          windowSize={7}
+          maxToRenderPerBatch={10}
+          removeClippedSubviews
           ListEmptyComponent={
             <View style={{ alignItems: "center", marginTop: vs(80) }}>
               <View style={[{ width: hs(80), height: hs(80), borderRadius: hs(40), alignItems: "center", justifyContent: "center", marginBottom: vs(20) }, { backgroundColor: theme.surfaceContainerLow }]}>
@@ -288,24 +331,39 @@ export default function BrowseMedications() {
             ]}
           >
             <TouchableOpacity
-              onPress={() => {
-                router.push({
-                  pathname: "/AddMedication",
-                  params: { selectedMeds: JSON.stringify(selectedMeds) },
-                });
-              }}
+              onPress={handleAddSelected}
+              disabled={checking}
               style={[
                 { paddingVertical: vs(16), borderRadius: hs(16), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), backgroundColor: theme.primary },
                 webShadow({ elevation: 6, color: theme.primary, radius: 12, offsetY: 6 }),
+                { opacity: checking ? 0.7 : 1 },
               ]}
             >
-              <MaterialCommunityIcons name="plus" size={hs(22)} color="white" />
-              <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
-                {t("addNew")} {selectedMeds.length} {selectedMeds.length === 1 ? t("medication") : t("medications")}
-              </Text>
+              {checking ? (
+                <>
+                  <ActivityIndicator color="white" />
+                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                    {t("checkingSafety")}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="plus" size={hs(22)} color="white" />
+                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                    {t("addNew")} {selectedMeds.length} {selectedMeds.length === 1 ? t("medication") : t("medications")}
+                  </Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
+
+        <InteractionAlertModal
+          payload={interactionPayload}
+          visible={interactionVisible}
+          onProceed={onProceed}
+          onCancel={onCancel}
+        />
       </SafeAreaView>
     </View>
   );

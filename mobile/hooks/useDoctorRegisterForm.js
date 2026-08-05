@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { useToast } from "@/src/context/ToastContext";
 import { registerDoctor } from "@/services/doctorAuthService";
+import { setPendingVerifyEmail } from "@/services/tokenService";
 
 const SPECIALIZATIONS = [
   "Cardiology",
@@ -21,7 +23,7 @@ const SPECIALIZATIONS = [
   "Pulmonology",
 ];
 
-const WORKPLACE_TYPES = ["Clinic", "Hospital", "Medical Center"];
+const WORKPLACE_TYPES = ["Clinic", "Hospital"];
 
 export const useDoctorRegisterForm = () => {
   const router = useRouter();
@@ -56,6 +58,36 @@ export const useDoctorRegisterForm = () => {
   const [genderModal, setGenderModal] = useState(false);
   const [specializationModal, setSpecializationModal] = useState(false);
   const [workplaceTypeModal, setWorkplaceTypeModal] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLocationLoading(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setLocationLoading(false);
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({});
+        const addresses = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        if (addresses && addresses.length > 0) {
+          const addr = addresses[0];
+          const parts = [addr.city, addr.region, addr.country].filter(Boolean);
+          if (parts.length > 0) {
+            updateField("location", parts.join(", "));
+          }
+        }
+      } catch {
+      } finally {
+        setLocationLoading(false);
+      }
+    })();
+  }, []);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -99,6 +131,14 @@ export const useDoctorRegisterForm = () => {
 
   const removeWorkplace = (index) => {
     setWorkplaces((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const setWorkplaceLocation = (latitude, longitude) => {
+    setCurrentWorkplace((prev) => ({
+      ...prev,
+      latitude: String(latitude),
+      longitude: String(longitude),
+    }));
   };
 
   const validateStep1 = () => {
@@ -176,9 +216,8 @@ export const useDoctorRegisterForm = () => {
       });
 
       const response = await registerDoctor(fd);
-      if (response.data?.token) {
-        router.replace("/(doctor)/DoctorDashboard");
-      }
+      await setPendingVerifyEmail(form.email, "doctor");
+      router.replace("/(auth-doctor)/EmailVerifyScreen");
     } catch (error) {
       const message = error.message || "Registration failed.";
       toastError(message);
@@ -199,6 +238,10 @@ export const useDoctorRegisterForm = () => {
     updateWorkplaceField,
     addWorkplace,
     removeWorkplace,
+    setWorkplaceLocation,
+    showLocationPicker,
+    setShowLocationPicker,
+    locationLoading,
     genderModal,
     setGenderModal,
     specializationModal,

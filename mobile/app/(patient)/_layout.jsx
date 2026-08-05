@@ -8,7 +8,7 @@ export default function PatientLayout() {
       <Stack.Screen name="BrowseMedications" options={{ headerShown: false }} />
       <Stack.Screen name="MedicationRequest" options={{ headerShown: false }} />
       <Stack.Screen name="PharmacyDetails" options={{ headerShown: false }} />
-      <Stack.Screen name="AddMedication" options={{ presentation: "modal" }} />
+      <Stack.Screen name="AddMedication" options={{ presentation: "modal", headerShown: false }} />
     </Stack>
   );
 }

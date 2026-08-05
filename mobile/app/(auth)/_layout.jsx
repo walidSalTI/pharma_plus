@@ -1,9 +1,13 @@
 import { Stack, useRouter } from "expo-router";
-import { TouchableOpacity } from "react-native";
+import { Text, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useLanguage } from "@/src/i18n/LanguageContext";
+import { useAppTheme } from "@/src/theme/ThemeContext";
 
 export default function AuthLayout() {
   const router = useRouter();
+  const { language, toggleLanguage } = useLanguage();
+  const { theme } = useAppTheme();
 
   return (
     <Stack
@@ -19,9 +23,20 @@ export default function AuthLayout() {
           headerShadowVisible: false,
           headerTransparent: true,
           headerTitle: "",
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.replace("/")}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color={theme.onSurface} />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
-            <TouchableOpacity onPress={() => router.push("/SettingsScreen")}>
-              <MaterialCommunityIcons name="cog-outline" size={24} color="#0b6a6a" />
+            <TouchableOpacity
+              onPress={toggleLanguage}
+              style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(11,106,106,0.08)" }}
+            >
+              <MaterialCommunityIcons name="translate" size={18} color="#0b6a6a" />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: "#0b6a6a" }}>
+                {language === "ar" ? "AR" : "EN"}
+              </Text>
             </TouchableOpacity>
           ),
         }}
@@ -31,10 +46,12 @@ export default function AuthLayout() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="SettingsScreen"
-        options={{
-          headerShown: false,
-        }}
+        name="ForgotPasswordScreen"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="EmailVerifyScreen"
+        options={{ headerShown: false }}
       />
     </Stack>
   );

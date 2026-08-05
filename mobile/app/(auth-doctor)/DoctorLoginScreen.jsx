@@ -112,6 +112,7 @@ export default function DoctorLoginScreen() {
             showPassword={showPassword}
             setShowPassword={setShowPassword}
             error={errors.password}
+            onForgot={() => router.push("/(auth)/ForgotPasswordScreen")}
           />
         </View>
 
@@ -156,17 +157,7 @@ export default function DoctorLoginScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => router.replace("/(auth)/LoginScreen")}
-          style={{ marginTop: vs(16), alignItems: "center" }}
-        >
-          <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
-            {t("areYouPatient")}{" "}
-            <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: theme.primary }]}>
-              {t("loginAsPatient")}
-            </Text>
-          </Text>
-        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );

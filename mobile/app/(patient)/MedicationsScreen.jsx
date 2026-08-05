@@ -3,8 +3,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Alert,
-  Image,
   Modal,
   ScrollView,
   StatusBar,
@@ -13,22 +11,32 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "twrnc";
 import BottomNavBar from "@/components/BottomNavBar";
+import ErrorState from "@/components/ErrorState";
 import { useMedicationsData } from "@/hooks/useMedicationsData";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
+import { useToast } from "@/src/context/ToastContext";
+import { useCustomAlert } from "@/src/context/CustomAlertContext";
 import { webShadow } from "@/constants/shadow";
 import { useResponsive } from "@/constants/responsive";
+import { useUserName } from "@/hooks/useUserName";
 import { toggleWalletItem, updatePills, deleteWalletItem } from "@/services/walletService";
+import { removeMedication, getMedications } from "@/services/medicationStorage";
+import { syncRemindersFromStorage } from "@/services/notificationService";
 
 export default function MedicationsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
-  const { loading, meds, nextMed, otherMeds, refreshMedications } = useMedicationsData();
+  const { loading, meds, nextMed, otherMeds, refreshMedications, error, offline } = useMedicationsData();
+  const { userName } = useUserName();
+  const { success: toastSuccess, error: toastError, info: toastInfo, warning: toastWarning } = useToast();
+  const { confirm } = useCustomAlert();
   const scheduledMeds = meds.filter((m) => !m.isAsNeeded);
 
   const [actionMed, setActionMed] = useState(null);
@@ -41,31 +49,31 @@ export default function MedicationsScreen() {
       await toggleWalletItem(item.id, !item.isActive);
       refreshMedications();
     } catch {
-      Alert.alert(t("error"), t("medUpdateFailed"));
+      toastError(t("medUpdateFailed"));
     }
   };
 
   const handleDelete = (item) => {
     setActionMed(null);
-    Alert.alert(
-      t("removeFromWallet"),
-      t("removeConfirm", { name: item.name }),
-      [
-        { text: t("cancel"), style: "cancel" },
-        {
-          text: t("confirmRemove"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteWalletItem(item.id);
-              refreshMedications();
-            } catch {
-              Alert.alert(t("error"), t("failedRemove"));
-            }
-          },
-        },
-      ],
-    );
+    confirm({
+      title: t("removeFromWallet"),
+      message: t("removeConfirm", { name: item.name }),
+      confirmText: t("confirmRemove"),
+      cancelText: t("cancel"),
+      variant: "delete",
+      onConfirm: async () => {
+        try {
+          await deleteWalletItem(item.id);
+          if (item.medicationId) {
+            await removeMedication(item.medicationId);
+          }
+          await syncRemindersFromStorage(getMedications);
+          refreshMedications();
+        } catch {
+          toastError(t("failedRemove"));
+        }
+      },
+    });
   };
 
   const handlePillsSave = async () => {
@@ -78,7 +86,7 @@ export default function MedicationsScreen() {
       setPillsInput("");
       refreshMedications();
     } catch {
-      Alert.alert(t("error"), t("failedPills"));
+      toastError(t("failedPills"));
     }
   };
 
@@ -86,23 +94,23 @@ export default function MedicationsScreen() {
     setActionMed(null);
     const current = item.availablePills;
     if (current != null && current <= 0) {
-      Alert.alert(t("alert"), t("refillNeeded"));
+      toastWarning(t("refillNeeded"));
       return;
     }
     try {
       await updatePills(item.id, current != null ? current - 1 : 0);
       if (current != null && current - 1 <= 0) {
-        Alert.alert(t("alert"), t("refillNeeded"));
+        toastWarning(t("refillNeeded"));
       }
       refreshMedications();
     } catch {
-      Alert.alert(t("error"), t("medUpdateFailed"));
+      toastError(t("medUpdateFailed"));
     }
   };
 
   const handleSnooze = () => {
     setActionMed(null);
-    Alert.alert(t("snoozed"), t("snoozedMessage"));
+    toastSuccess(t("snoozedMessage"));
   };
 
   const showActionMenu = (item) => {
@@ -127,12 +135,15 @@ export default function MedicationsScreen() {
             <View style={[{ width: hs(36), height: hs(36), borderRadius: hs(18), overflow: "hidden" }, { backgroundColor: theme.surfaceContainerHighest }]}>
               <Image
                 source={{
-                  uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuD3CEvmRFKO2m4j50c0kqekJBawo4DjjelTxZimH6WUOe56gLIVOm3E8Q9X4FE2A45L0NpG96dX13R_U9hbNfC8cEZAat6HYZsYB1K9i5FCM0F5A7VrfP46CV_AMyZJGFO6yTgRpTjDETcbDUozUHUzQ1YVbLLANMIMO2RWWzw8lWS5UvLWjxD-Uy6xQ6XQ0HdPoT_0Wseieax9DZkDfNn-nEy7jDTjCxQNy-ER76AmqbX0fFK5bxO-VHausQPmwoqH97qj8-Klm1M",
+                  uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuD3CEvmRFKO2m4j50c0kqekJBawo4DjjelTxZimH6WUOe56gLIVOm3E8Q9X4FE2A45L0NpG96dX13R_U9hbNfC8cEZAat6HYZsYB1K9i5FCM0F5A7VrfP46CV_AMyZJGFO6yTgRpTjDETcbDUozUHUzQ1YVbLLANMIMO2RWWzw8lWS5UvLWjxD-Uy6xQ6X0HdPoT_0Wseieax9DZkDfNn-nEy7jDTjCxQNy-ER76AmqbX0fFK5bxO-VHausQPmwoqH97qj8-Klm1M",
                 }}
                 style={{ width: "100%", height: "100%" }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
               />
             </View>
-            <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>Vitalis</Text>
+            <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName || "Pharma"}</Text>
           </View>
           <TouchableOpacity style={{ padding: hs(8), borderRadius: hs(16) }}>
             <MaterialCommunityIcons name="bell-outline" size={hs(24)} color={theme.onSurfaceVariant} />
@@ -151,8 +162,13 @@ export default function MedicationsScreen() {
 
           {loading ? (
             <ActivityIndicator size="large" color={theme.primary} style={tw`mt-20`} />
+          ) : error && !offline ? (
+            <ErrorState message={t("couldNotLoad")} onRetry={refreshMedications} />
           ) : (
             <>
+              {offline && (
+                <ErrorState banner offline message={t("offlineModeDesc")} />
+              )}
               {nextMed && (
                 <View
                   style={[

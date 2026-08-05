@@ -14,6 +14,7 @@ import tw from "twrnc";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
 import { useLanguage } from "@/src/i18n/LanguageContext";
+import QRCode from "react-native-qrcode-svg";
 import { useTwoFactorSettings } from "@/hooks/useTwoFactorSettings";
 
 export default function TwoFactorSetupScreen({ role = "doctor" }) {
@@ -36,7 +37,7 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
     handleDigitChange,
     handleKeyDown,
     resetToStatus,
-  } = useTwoFactorSettings();
+  } = useTwoFactorSettings(role);
 
   useEffect(() => {
     if (step === "setup") {
@@ -229,22 +230,22 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
               </Text>
             </View>
 
-            {qrData.qr_code && (
+            {(qrData.qr_code || qrData.qr_code_url || qrData.otpauth_url || qrData.uri || qrData.secret) && (
               <View style={{ alignItems: "center" }}>
                 <View
                   style={{
                     backgroundColor: "white",
-                    borderRadius: 16,
+                    borderRadius: hs(16),
                     padding: hs(16),
                     alignItems: "center",
                   }}
                 >
-                  <Text style={{ fontSize: fontScale(12), color: theme.onSurfaceVariant, marginBottom: 8 }}>
-                    QR Code
-                  </Text>
-                  <Text style={{ fontSize: fontScale(10), color: theme.onSurfaceVariant, fontFamily: "monospace" }}>
-                    {qrData.qr_code.substring(0, 50)}...
-                  </Text>
+                  <QRCode
+                    value={qrData.qr_code || qrData.qr_code_url || qrData.otpauth_url || qrData.uri || `otpauth://totp/PharmaPlus?secret=${qrData.secret}&issuer=PharmaPlus&algorithm=SHA1&digits=6&period=30`}
+                    size={hs(200)}
+                    color="#000000"
+                    backgroundColor="#ffffff"
+                  />
                 </View>
               </View>
             )}

@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
@@ -22,7 +21,7 @@ export default function DoctorDashboard() {
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
   const { profile, loading: profileLoading } = useDoctorProfile();
-  const { payload, timeRemaining, isActive } = useTotpQr(profile?.id);
+  const { payload, timeRemaining, isActive, error } = useTotpQr(profile?.id);
 
   return (
     <View style={[tw`flex-1`, { backgroundColor: theme.surface }]}>
@@ -89,7 +88,7 @@ export default function DoctorDashboard() {
           ) : (
             <>
               <View style={{ marginTop: vs(24) }}>
-                <TotpQrDisplay payload={payload} timeRemaining={timeRemaining} isActive={isActive} />
+                <TotpQrDisplay payload={payload} timeRemaining={timeRemaining} isActive={isActive} error={error} />
               </View>
 
               {profile?.workplaces && profile.workplaces.length > 0 && (

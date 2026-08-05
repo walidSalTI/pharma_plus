@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,6 +20,7 @@ import { saveMedications } from "@/services/medicationStorage";
 import { scheduleMedicationReminders } from "@/services/notificationService";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
+import { useToast } from "@/src/context/ToastContext";
 import { webShadow } from "@/constants/shadow";
 import { useResponsive } from "@/constants/responsive";
 
@@ -42,6 +43,7 @@ export default function AddMedication() {
   const { t } = useLanguage();
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
+  const { success: toastSuccess, error: toastError } = useToast();
   const { selectedMeds } = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
   const [chronicDiseases, setChronicDiseases] = useState([]);
@@ -119,7 +121,7 @@ export default function AddMedication() {
 
       for (const med of medications) {
         if (!med.dosage.trim()) {
-          Alert.alert(t("error"), `${t("dosage")} ${med.name} مطلوب`);
+          toastError(`${t("dosage")} required: ${med.name}`);
           setLoading(false);
           return;
         }
@@ -164,10 +166,10 @@ export default function AddMedication() {
       await saveMedications(reminders);
       await scheduleMedicationReminders(reminders);
 
-      Alert.alert(t("saved"), t("addedToWallet"));
+      toastSuccess(t("addedToWallet"));
       router.replace("/(patient)/MedicationsScreen");
     } catch (e) {
-      Alert.alert(t("error"), e.message || t("failedSave"));
+      toastError(e.message || t("failedSave"));
     } finally {
       setLoading(false);
     }
@@ -209,256 +211,441 @@ export default function AddMedication() {
     );
   };
 
+  const SectionLabel = ({ children }) => (
+    <Text
+      style={{
+        fontSize: fontScale(11),
+        fontWeight: "700",
+        textTransform: "uppercase",
+        letterSpacing: 1.2,
+        marginBottom: vs(10),
+        color: theme.onSurfaceVariant,
+      }}
+    >
+      {children}
+    </Text>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.surface }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <SafeAreaView style={{ flex: 1 }}>
-        <View
-          style={[
-            tw`flex-row items-center`,
-            {
-              paddingHorizontal: hs(24),
-              backgroundColor: isDark ? theme.surface : "rgba(255,255,255,0.8)",
-              minHeight: vs(64),
-            },
-          ]}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            position: "absolute",
+            top: vs(12),
+            left: hs(16),
+            zIndex: 20,
+            width: hs(40),
+            height: hs(40),
+            borderRadius: hs(20),
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.surfaceContainerLow,
+          }}
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[{ width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLow }]}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={hs(22)} color={theme.primary} />
-          </TouchableOpacity>
-          <Text style={[{ fontSize: fontScale(20), fontWeight: "700", marginLeft: hs(16) }, { color: theme.onSurface }]}>
-            {t("addSchedule")}
-          </Text>
-          <Text style={[{ fontSize: fontScale(14), fontWeight: "700", marginLeft: "auto" }, { color: theme.onSurfaceVariant }]}>
-            {medications.length} {medications.length === 1 ? t("medication") : t("medications")}
-          </Text>
-        </View>
+          <MaterialCommunityIcons name="arrow-left" size={hs(22)} color={theme.primary} />
+        </TouchableOpacity>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: isTablet ? hs(120) : hs(24), paddingBottom: vs(224), paddingTop: vs(16) }}>
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: isTablet ? hs(120) : hs(24),
+            paddingBottom: vs(224),
+            paddingTop: vs(64),
+          }}
+          showsVerticalScrollIndicator={false}
+        >
           {medications.map((med, index) => (
             <View
               key={index}
               style={[
-                { marginBottom: vs(20), borderRadius: hs(16), padding: hs(20) },
-                { backgroundColor: theme.surfaceContainerLowest },
+                {
+                  marginBottom: vs(20),
+                  borderRadius: hs(20),
+                  backgroundColor: theme.surfaceContainerLowest,
+                  overflow: "hidden",
+                  ...webShadow({ elevation: 4, opacity: isDark ? 0.15 : 0.05, radius: 16, offsetY: 6 }),
+                },
               ]}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12), marginBottom: vs(20) }}>
-                <View style={[{ width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLow }]}>
-                  <MaterialCommunityIcons name="pill" size={hs(20)} color={theme.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: fontScale(18), fontWeight: "700" }, { color: theme.onSurface }]}>
-                    {med.name}
-                  </Text>
-                </View>
-              </View>
+              <View
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  width: hs(100),
+                  height: hs(100),
+                  borderBottomLeftRadius: hs(50),
+                  opacity: 0.25,
+                  backgroundColor: theme.primaryContainer,
+                }}
+              />
 
-              <View style={{ flexDirection: "row", gap: hs(12) }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                    {t("dosage")}
-                  </Text>
-                  <TextInput
-                    style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
-                    placeholder={t("dosagePlaceholder")}
-                    placeholderTextColor="#acb3b6"
-                    value={med.dosage}
-                    onChangeText={(v) => updateMed(index, { dosage: v })}
-                  />
+              <View style={{ padding: hs(20) }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12), marginBottom: vs(24) }}>
+                  <View
+                    style={[
+                      { width: hs(44), height: hs(44), borderRadius: hs(22), alignItems: "center", justifyContent: "center" },
+                      { backgroundColor: theme.primaryContainer },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name="pill" size={hs(22)} color={theme.primary} />
+                  </View>
+                  <View style={{ flex: 1, position: "relative", zIndex: 10 }}>
+                    <Text style={{ fontSize: fontScale(18), fontWeight: "700", color: theme.onSurface }}>
+                      {med.name}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      { paddingHorizontal: hs(12), paddingVertical: vs(6), borderRadius: hs(16) },
+                      { backgroundColor: theme.secondaryContainer },
+                    ]}
+                  >
+                    <Text style={{ fontSize: fontScale(11), fontWeight: "700", color: theme.onSecondaryContainer }}>
+                      #{index + 1}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ width: hs(96) }}>
-                  <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                    {t("pills")}
-                  </Text>
-                  <TextInput
-                    style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
-                    placeholder={t("qty")}
-                    placeholderTextColor="#acb3b6"
-                    keyboardType="numeric"
-                    value={med.available_pills}
-                    onChangeText={(v) => updateMed(index, { available_pills: v })}
-                  />
-                </View>
-              </View>
 
-              <View style={{ marginTop: vs(16) }}>
-                <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                  {t("type")}
-                </Text>
                 <View style={{ flexDirection: "row", gap: hs(12) }}>
-                  {["permanent", "temporary"].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => updateMed(index, { state: type })}
+                  <View style={{ flex: 1 }}>
+                    <SectionLabel>{t("dosage")}</SectionLabel>
+                    <TextInput
                       style={[
-                        { flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center" },
-                        med.state === type
-                          ? { backgroundColor: theme.primary }
-                          : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                        {
+                          borderRadius: hs(14),
+                          backgroundColor: theme.surfaceContainerLow,
+                          borderWidth: 1,
+                          paddingHorizontal: hs(16),
+                          height: vs(50),
+                          fontSize: fontScale(15),
+                          color: theme.onSurface,
+                        },
+                        { borderColor: theme.outlineVariant },
                       ]}
-                    >
-                      <Text
-                        style={[
-                          { fontSize: fontScale(12), fontWeight: "700", textTransform: "uppercase" },
-                          med.state === type ? { color: "white" } : { color: theme.onSurfaceVariant },
-                        ]}
-                      >
-                        {t(type)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                      placeholder={t("dosagePlaceholder")}
+                      placeholderTextColor={theme.outline}
+                      value={med.dosage}
+                      onChangeText={(v) => updateMed(index, { dosage: v })}
+                    />
+                  </View>
+                  <View style={{ width: hs(96) }}>
+                    <SectionLabel>{t("pills")}</SectionLabel>
+                    <TextInput
+                      style={[
+                        {
+                          borderRadius: hs(14),
+                          backgroundColor: theme.surfaceContainerLow,
+                          borderWidth: 1,
+                          paddingHorizontal: hs(16),
+                          height: vs(50),
+                          fontSize: fontScale(15),
+                          color: theme.onSurface,
+                        },
+                        { borderColor: theme.outlineVariant },
+                      ]}
+                      placeholder={t("qty")}
+                      placeholderTextColor={theme.outline}
+                      keyboardType="numeric"
+                      value={med.available_pills}
+                      onChangeText={(v) => updateMed(index, { available_pills: v })}
+                    />
+                  </View>
                 </View>
-              </View>
 
-              {chronicDiseases.length > 0 && (
-                <View style={{ marginTop: vs(16) }}>
-                  <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                    {t("chronicConditions")}
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {chronicDiseases.map((d) => (
+                <View style={{ marginTop: vs(20) }}>
+                  <SectionLabel>{t("type")}</SectionLabel>
+                  <View
+                    style={[
+                      {
+                        flexDirection: "row",
+                        borderRadius: hs(14),
+                        padding: vs(4),
+                        backgroundColor: theme.surfaceContainerLow,
+                      },
+                    ]}
+                  >
+                    {["permanent", "temporary"].map((type) => (
                       <TouchableOpacity
-                        key={d.id}
-                        onPress={() => updateMed(index, { chronic_id: med.chronic_id === d.chronic_disease_id ? null : d.chronic_disease_id })}
+                        key={type}
+                        onPress={() => updateMed(index, { state: type })}
                         style={[
-                          { paddingHorizontal: hs(16), paddingVertical: vs(8), borderRadius: hs(24), marginRight: hs(8) },
-                          med.chronic_id === d.chronic_disease_id
-                            ? { backgroundColor: theme.primary }
-                            : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                          {
+                            flex: 1,
+                            paddingVertical: vs(12),
+                            borderRadius: hs(12),
+                            alignItems: "center",
+                          },
+                          med.state === type
+                            ? {
+                                backgroundColor: theme.primary,
+                                ...webShadow({ elevation: 4, color: theme.primary, radius: 8, offsetY: 3 }),
+                              }
+                            : { backgroundColor: "transparent" },
                         ]}
                       >
                         <Text
                           style={[
-                            { fontSize: fontScale(12), fontWeight: "700" },
-                            { color: med.chronic_id === d.chronic_disease_id ? "white" : theme.onSurfaceVariant },
+                            { fontSize: fontScale(13), fontWeight: "700" },
+                            med.state === type ? { color: "white" } : { color: theme.onSurfaceVariant },
                           ]}
                         >
-                          {d.name_en || d.name}
+                          {t(type)}
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              <View style={{ marginTop: vs(16) }}>
-                <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                  {t("instrBefore")}
-                </Text>
-                <TextInput
-                  style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
-                  placeholder={t("instrPlaceholder")}
-                  placeholderTextColor="#acb3b6"
-                  value={med.instructions_before}
-                  onChangeText={(v) => updateMed(index, { instructions_before: v })}
-                />
-              </View>
-
-              <View style={{ marginTop: vs(16) }}>
-                <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                  {t("instrAfter")}
-                </Text>
-                <TextInput
-                  style={[{ borderRadius: hs(12), backgroundColor: theme.surfaceContainerLow, borderWidth: 1, paddingHorizontal: hs(16), height: vs(48), fontSize: fontScale(16) }, { borderColor: theme.outlineVariant }]}
-                  placeholder={t("instrPlaceholder")}
-                  placeholderTextColor="#acb3b6"
-                  value={med.instructions_after}
-                  onChangeText={(v) => updateMed(index, { instructions_after: v })}
-                />
-              </View>
-
-              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12), marginLeft: hs(4), marginTop: vs(20) }, { color: theme.onSurfaceVariant }]}>
-                {t("dailyFreq")}
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12), marginBottom: vs(16) }}>
-                <TouchableOpacity
-                  onPress={() => handleFrequencyChange(index, -1)}
-                  disabled={med.frequency <= 1}
-                  style={[
-                    { width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.primary },
-                    {
-                      backgroundColor: med.frequency <= 1 ? theme.surfaceContainerLow : theme.surfaceContainerLowest,
-                      opacity: med.frequency <= 1 ? 0.4 : 1,
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons name="minus" size={hs(20)} color={theme.primary} />
-                </TouchableOpacity>
-
-                <View style={[{ flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center" }, { backgroundColor: theme.primary }]}>
-                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
-                    {med.frequency} {t("xPerDay")}
-                  </Text>
+                  </View>
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => handleFrequencyChange(index, 1)}
-                  disabled={med.frequency >= 4}
-                  style={[
-                    { width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: theme.primary },
-                    {
-                      backgroundColor: med.frequency >= 4 ? theme.surfaceContainerLow : theme.surfaceContainerLowest,
-                      opacity: med.frequency >= 4 ? 0.4 : 1,
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons name="plus" size={hs(20)} color={theme.primary} />
-                </TouchableOpacity>
-              </View>
+                {chronicDiseases.length > 0 && (
+                  <View style={{ marginTop: vs(20) }}>
+                    <SectionLabel>{t("chronicConditions")}</SectionLabel>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      {chronicDiseases.map((d) => (
+                        <TouchableOpacity
+                          key={d.id}
+                          onPress={() => updateMed(index, { chronic_id: med.chronic_id === d.chronic_disease_id ? null : d.chronic_disease_id })}
+                          style={[
+                            {
+                              paddingHorizontal: hs(16),
+                              paddingVertical: vs(8),
+                              borderRadius: hs(20),
+                              marginRight: hs(8),
+                            },
+                            med.chronic_id === d.chronic_disease_id
+                              ? {
+                                  backgroundColor: theme.primary,
+                                  ...webShadow({ elevation: 3, color: theme.primary, radius: 6, offsetY: 2 }),
+                                }
+                              : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              { fontSize: fontScale(12), fontWeight: "700" },
+                              { color: med.chronic_id === d.chronic_disease_id ? "white" : theme.onSurfaceVariant },
+                            ]}
+                          >
+                            {d.name_en || d.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
 
-              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(8), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                {t("daysOfWeek")}
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(8), marginBottom: vs(16) }}>
-                {DAYS.map((day, di) => (
-                  <TouchableOpacity
-                    key={day}
-                    onPress={() => toggleDay(index, di)}
+                <View style={{ marginTop: vs(20) }}>
+                  <SectionLabel>{t("instrBefore")}</SectionLabel>
+                  <TextInput
                     style={[
-                      { width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" },
-                      med.selectedDays.includes(di)
-                        ? { backgroundColor: theme.primary }
-                        : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
+                      {
+                        borderRadius: hs(14),
+                        backgroundColor: theme.surfaceContainerLow,
+                        borderWidth: 1,
+                        paddingHorizontal: hs(16),
+                        height: vs(50),
+                        fontSize: fontScale(15),
+                        color: theme.onSurface,
+                      },
+                      { borderColor: theme.outlineVariant },
                     ]}
+                    placeholder={t("instrPlaceholder")}
+                    placeholderTextColor={theme.outline}
+                    value={med.instructions_before}
+                    onChangeText={(v) => updateMed(index, { instructions_before: v })}
+                  />
+                </View>
+
+                <View style={{ marginTop: vs(16) }}>
+                  <SectionLabel>{t("instrAfter")}</SectionLabel>
+                  <TextInput
+                    style={[
+                      {
+                        borderRadius: hs(14),
+                        backgroundColor: theme.surfaceContainerLow,
+                        borderWidth: 1,
+                        paddingHorizontal: hs(16),
+                        height: vs(50),
+                        fontSize: fontScale(15),
+                        color: theme.onSurface,
+                      },
+                      { borderColor: theme.outlineVariant },
+                    ]}
+                    placeholder={t("instrPlaceholder")}
+                    placeholderTextColor={theme.outline}
+                    value={med.instructions_after}
+                    onChangeText={(v) => updateMed(index, { instructions_after: v })}
+                  />
+                </View>
+
+                <View style={{ marginTop: vs(24) }}>
+                  <SectionLabel>{t("dailyFreq")}</SectionLabel>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: hs(12),
+                    }}
                   >
-                    <Text
+                    <TouchableOpacity
+                      onPress={() => handleFrequencyChange(index, -1)}
+                      disabled={med.frequency <= 1}
                       style={[
-                        { fontSize: fontScale(12), fontWeight: "700" },
-                        { color: med.selectedDays.includes(di) ? "white" : theme.onSurfaceVariant },
+                        {
+                          width: hs(44),
+                          height: hs(44),
+                          borderRadius: hs(22),
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1.5,
+                          borderColor: theme.primary,
+                        },
+                        {
+                          backgroundColor: med.frequency <= 1 ? theme.surfaceContainerLow : theme.surfaceContainerLowest,
+                          opacity: med.frequency <= 1 ? 0.35 : 1,
+                        },
                       ]}
                     >
-                      {day.substring(0, 2)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <MaterialCommunityIcons name="minus" size={hs(20)} color={theme.primary} />
+                    </TouchableOpacity>
 
-              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12), marginLeft: hs(4) }, { color: theme.onSurfaceVariant }]}>
-                {t("times")}
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(12) }}>
-                {med.times.map((time, tidx) => (
-                  <TouchableOpacity
-                    key={tidx}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      setActiveIndex(index);
-                      setActiveTimeIndex(tidx);
-                      setTempDate(stringToDate(time));
-                      setShowPicker(true);
-                    }}
-                    style={[
-                      { flexDirection: "row", alignItems: "center", gap: hs(8), paddingHorizontal: hs(16), paddingVertical: vs(12), borderRadius: hs(12) },
-                      { backgroundColor: theme.surfaceContainerLow, minWidth: hs(150) },
-                    ]}
-                  >
-                    <MaterialCommunityIcons name="clock-outline" size={hs(18)} color={theme.primary} />
-                    <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.primary }]}>{time}</Text>
-                  </TouchableOpacity>
-                ))}
+                    <View
+                      style={[
+                        {
+                          flex: 1,
+                          paddingVertical: vs(14),
+                          borderRadius: hs(14),
+                          alignItems: "center",
+                          backgroundColor: theme.primary,
+                          ...webShadow({ elevation: 4, color: theme.primary, radius: 8, offsetY: 3 }),
+                        },
+                      ]}
+                    >
+                      <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                        {med.frequency} {t("xPerDay")}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => handleFrequencyChange(index, 1)}
+                      disabled={med.frequency >= 4}
+                      style={[
+                        {
+                          width: hs(44),
+                          height: hs(44),
+                          borderRadius: hs(22),
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1.5,
+                          borderColor: theme.primary,
+                        },
+                        {
+                          backgroundColor: med.frequency >= 4 ? theme.surfaceContainerLow : theme.surfaceContainerLowest,
+                          opacity: med.frequency >= 4 ? 0.35 : 1,
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons name="plus" size={hs(20)} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ marginTop: vs(24) }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: vs(12) }}>
+                    <SectionLabel>{t("daysOfWeek")}</SectionLabel>
+                    <Text style={{ fontSize: fontScale(12), fontWeight: "700", color: theme.primary }}>
+                      {med.selectedDays.length}/7
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(8) }}>
+                    {DAYS.map((day, di) => {
+                      const isActive = med.selectedDays.includes(di);
+                      return (
+                        <TouchableOpacity
+                          key={day}
+                          onPress={() => toggleDay(index, di)}
+                          activeOpacity={0.7}
+                          style={[
+                            {
+                              paddingHorizontal: hs(16),
+                              paddingVertical: vs(10),
+                              borderRadius: hs(24),
+                            },
+                            isActive
+                              ? {
+                                  backgroundColor: theme.primary,
+                                  ...webShadow({ elevation: 3, color: theme.primary, radius: 6, offsetY: 2 }),
+                                }
+                              : {
+                                  backgroundColor: theme.surfaceContainerLow,
+                                  borderWidth: 1,
+                                  borderColor: theme.outlineVariant,
+                                },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              fontSize: fontScale(13),
+                              fontWeight: "600",
+                              color: isActive ? "white" : theme.onSurfaceVariant,
+                            }}
+                          >
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={{ marginTop: vs(24) }}>
+                  <SectionLabel>{t("times")}</SectionLabel>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(12) }}>
+                    {med.times.map((time, tidx) => (
+                      <TouchableOpacity
+                        key={tidx}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setActiveIndex(index);
+                          setActiveTimeIndex(tidx);
+                          setTempDate(stringToDate(time));
+                          setShowPicker(true);
+                        }}
+                        style={[
+                          {
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: hs(10),
+                            paddingHorizontal: hs(20),
+                            paddingVertical: vs(14),
+                            borderRadius: hs(14),
+                            minWidth: hs(150),
+                          },
+                          {
+                            backgroundColor: theme.surfaceContainerLow,
+                            borderWidth: 1,
+                            borderColor: theme.outlineVariant,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            { width: hs(32), height: hs(32), borderRadius: hs(16), alignItems: "center", justifyContent: "center" },
+                            { backgroundColor: theme.primaryContainer },
+                          ]}
+                        >
+                          <MaterialCommunityIcons name="clock-outline" size={hs(16)} color={theme.primary} />
+                        </View>
+                        <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: theme.onSurface }}>
+                          {time}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               </View>
             </View>
           ))}
@@ -483,28 +670,34 @@ export default function AddMedication() {
                 paddingHorizontal: hs(24),
                 paddingBottom: vs(32),
                 backgroundColor: isDark ? theme.surface : "rgba(255,255,255,0.95)",
-                borderTopLeftRadius: hs(24),
-                borderTopRightRadius: hs(24),
-                ...webShadow({ elevation: 12, color: "#0b6a6a", opacity: 0.06, radius: 12, offsetY: -6 }),
+                borderTopLeftRadius: hs(28),
+                borderTopRightRadius: hs(28),
               },
+              webShadow({ elevation: 16, opacity: 0.08, radius: 16, offsetY: -6 }),
             ]}
           >
             <TouchableOpacity
               onPress={handleSave}
               disabled={loading}
               style={[
-                { paddingVertical: vs(16), borderRadius: hs(12), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), backgroundColor: theme.primary },
                 {
-                  ...webShadow({ elevation: 6, color: theme.primary, radius: 10, offsetY: 6 }),
-                  opacity: loading ? 0.7 : 1,
+                  paddingVertical: vs(18),
+                  borderRadius: hs(16),
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: hs(10),
+                  backgroundColor: theme.primary,
                 },
+                webShadow({ elevation: 6, color: theme.primary, radius: 12, offsetY: 6 }),
+                { opacity: loading ? 0.7 : 1 },
               ]}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="check-bold" size={hs(20)} color="white" />
+                  <MaterialCommunityIcons name="check-bold" size={hs(22)} color="white" />
                   <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
                     {t("saveSchedule")}
                   </Text>

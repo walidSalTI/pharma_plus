@@ -33,6 +33,17 @@ export const setupCategory = async () => {
   }
 };
 
+export const hasNotificationPermission = async () => {
+  if (!isNative) return false;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === "granted";
+  } catch (e) {
+    console.warn("[Notif] permission check error:", e);
+    return false;
+  }
+};
+
 export const requestPermissions = async () => {
   if (!isNative) return false;
   try {
@@ -101,6 +112,7 @@ export const scheduleMedicationReminders = async (medications) => {
   for (const med of medications) {
     if (med.is_active === false) continue;
 
+    if (!med.schedules) continue;
     for (const sched of med.schedules) {
       const id = await scheduleForTime(med, sched.dose_time, sched.day_of_week);
       ids.push(id);
@@ -135,6 +147,19 @@ export const snoozeNotification = async (notification) => {
 export const cancelAllReminders = async () => {
   if (!isNative) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
+};
+
+export const syncRemindersFromStorage = async (getMedications) => {
+  if (!isNative) return;
+  try {
+    const stored = await getMedications();
+    await cancelAllReminders();
+    if (stored.length > 0) {
+      await scheduleMedicationReminders(stored);
+    }
+  } catch (e) {
+    console.warn("[Notif] syncRemindersFromStorage error:", e);
+  }
 };
 
 export const getAllScheduledNotifications = async () => {

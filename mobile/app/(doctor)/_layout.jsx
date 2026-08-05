@@ -5,6 +5,7 @@ export default function DoctorLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="DoctorDashboard" />
       <Stack.Screen name="DoctorProfileScreen" />
+      <Stack.Screen name="TwoFactorSetupScreen" />
     </Stack>
   );
 }

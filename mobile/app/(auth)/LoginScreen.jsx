@@ -103,6 +103,7 @@ export default function LoginScreen() {
             showPassword={showPassword}
             setShowPassword={setShowPassword}
             error={errors.password}
+            onForgot={() => router.push("/(auth)/ForgotPasswordScreen")}
           />
         </View>
 
@@ -146,6 +147,8 @@ export default function LoginScreen() {
             </Text>
           </Text>
         </TouchableOpacity>
+
+
       </ScrollView>
     </SafeAreaView>
   );

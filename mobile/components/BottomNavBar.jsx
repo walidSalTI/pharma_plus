@@ -34,7 +34,7 @@ export default function BottomNavBar({ activeTab }) {
       name: "Profile",
       label: t("profile"),
       icon: "account",
-      route: "/SettingsScreen",
+      route: "/settings",
     },
   ];
 

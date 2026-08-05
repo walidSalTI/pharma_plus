@@ -1,23 +1,52 @@
-import { useState } from "react";
-import { Alert } from "react-native";
+import { useState, useCallback } from "react";
 import { useRouter } from "expo-router";
+import { useToast } from "@/src/context/ToastContext";
 import { loginUser } from "@/services/authService";
+import { useAuth } from "@/src/context/AuthContext";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const useLoginForm = () => {
   const router = useRouter();
+  const { error: toastError } = useToast();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
 
+  const clearError = useCallback((field) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  const handleEmailChange = useCallback((value) => {
+    setEmail(value);
+    clearError("email");
+  }, [clearError]);
+
+  const handlePasswordChange = useCallback((value) => {
+    setPassword(value);
+    clearError("password");
+  }, [clearError]);
+
   const validateForm = () => {
     const newErrors = {};
-    if (!email.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
       newErrors.email = "Email is required";
+    } else if (!EMAIL_REGEX.test(trimmedEmail)) {
+      newErrors.email = "Enter a valid email address";
     }
     if (!password) {
       newErrors.password = "Password is required";
+    } else if (password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -30,6 +59,7 @@ export const useLoginForm = () => {
     try {
       const response = await loginUser(email, password);
       if (response.data?.token) {
+        signIn("patient");
         router.replace("/(patient)/MedicationsScreen");
       }
     } catch (error) {
@@ -37,7 +67,7 @@ export const useLoginForm = () => {
         error.message?.includes("401") || error.message?.includes("credentials")
           ? "Invalid email or password"
           : error.message || "Login failed. Please try again.";
-      Alert.alert("Error", message);
+      toastError(message);
     } finally {
       setIsLoading(false);
     }
@@ -45,9 +75,9 @@ export const useLoginForm = () => {
 
   return {
     email,
-    setEmail,
+    setEmail: handleEmailChange,
     password,
-    setPassword,
+    setPassword: handlePasswordChange,
     isLoading,
     showPassword,
     setShowPassword,

@@ -61,6 +61,7 @@ export const LoginPasswordInput = ({
   showPassword,
   setShowPassword,
   error,
+  onForgot,
 }) => {
   const { theme } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
@@ -78,7 +79,7 @@ export const LoginPasswordInput = ({
         >
           Password
         </Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={onForgot}>
           <Text
             style={{
               fontSize: fontScale(10),

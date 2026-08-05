@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -11,16 +11,21 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import tw from "twrnc";
-import { InputField } from "@/components/FormInputs";
+import { CustomSelect, InputField } from "@/components/FormInputs";
+import LocationPickerModal from "@/components/LocationPickerModal";
 import WorkplaceCard from "@/components/WorkplaceCard";
 import { logoutDoctor } from "@/services/doctorAuthService";
-import { updateDoctorProfile, getDoctorWorkplaces, addWorkplace as addWorkplaceApi, deleteWorkplace as deleteWorkplaceApi } from "@/services/doctorService";
+import { clearToken } from "@/services/tokenService";
+import { clearAllReminders } from "@/services/reminderCleanup";
+import { updateDoctorProfile, getDoctorWorkplaces, addWorkplace as addWorkplaceApi, updateWorkplace as updateWorkplaceApi, deleteWorkplace as deleteWorkplaceApi } from "@/services/doctorService";
 import { useDoctorProfile } from "@/hooks/useDoctorProfile";
 import DoctorBottomNavBar from "@/components/DoctorBottomNavBar";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useToast } from "@/src/context/ToastContext";
 import { useCustomAlert } from "@/src/context/CustomAlertContext";
+import { useAuth } from "@/src/context/AuthContext";
+import ErrorState from "@/components/ErrorState";
 import { webShadow } from "@/constants/shadow";
 import { useResponsive } from "@/constants/responsive";
 export default function DoctorProfileScreen() {
@@ -28,9 +33,12 @@ export default function DoctorProfileScreen() {
   const { t, language, toggleLanguage } = useLanguage();
   const { theme, isDark, toggleTheme } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
-  const { profile, loading, profileLoading } = useDoctorProfile();
+  const { profile, loading, error, reload } = useDoctorProfile();
   const { success: toastSuccess, error: toastError } = useToast();
   const { confirm } = useCustomAlert();
+  const { signOut } = useAuth();
+
+  const WORKPLACE_TYPES = ["Clinic", "Hospital"];
 
   const [saving, setSaving] = useState(false);
   const [fName, setFName] = useState("");
@@ -38,6 +46,9 @@ export default function DoctorProfileScreen() {
   const [initialized, setInitialized] = useState(false);
   const [workplaces, setWorkplaces] = useState([]);
   const [showAddWorkplace, setShowAddWorkplace] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [workplaceTypeModal, setWorkplaceTypeModal] = useState(false);
+  const [editingWorkplace, setEditingWorkplace] = useState(null);
   const [newWorkplace, setNewWorkplace] = useState({
     place_name: "",
     place_type: "",
@@ -45,6 +56,15 @@ export default function DoctorProfileScreen() {
     longitude: "",
     radius_meters: "50",
   });
+  const loadWorkplaces = async () => {
+    try {
+      const data = await getDoctorWorkplaces();
+      setWorkplaces(Array.isArray(data) ? data : data?.data || []);
+    } catch {
+      setWorkplaces([]);
+    }
+  };
+
   const initProfile = useCallback(() => {
     if (profile && !initialized) {
       setFName(profile.f_name || "");
@@ -54,16 +74,11 @@ export default function DoctorProfileScreen() {
     }
   }, [profile, initialized]);
 
-  if (!initialized && profile) initProfile();
-
-  const loadWorkplaces = async () => {
-    try {
-      const data = await getDoctorWorkplaces();
-      setWorkplaces(Array.isArray(data) ? data : data?.data || []);
-    } catch {
-      setWorkplaces([]);
+  useEffect(() => {
+    if (profile && !initialized) {
+      initProfile();
     }
-  };
+  }, [profile, initialized, initProfile]);
 
   const handleSave = async () => {
     if (!fName.trim() || !lName.trim()) {
@@ -92,7 +107,10 @@ export default function DoctorProfileScreen() {
         try {
           await logoutDoctor();
         } catch {}
-        router.replace("/(auth-doctor)/DoctorLoginScreen");
+        await clearAllReminders();
+        await clearToken();
+        signOut();
+        router.replace("/");
       },
     });
   };
@@ -125,11 +143,19 @@ export default function DoctorProfileScreen() {
       return;
     }
     try {
-      await addWorkplaceApi({
-        ...newWorkplace,
-        place_type: newWorkplace.place_type.toLowerCase(),
-      });
+      if (editingWorkplace) {
+        await updateWorkplaceApi(editingWorkplace.id, {
+          ...newWorkplace,
+          place_type: newWorkplace.place_type.toLowerCase(),
+        });
+      } else {
+        await addWorkplaceApi({
+          ...newWorkplace,
+          place_type: newWorkplace.place_type.toLowerCase(),
+        });
+      }
       setShowAddWorkplace(false);
+      setEditingWorkplace(null);
       setNewWorkplace({ place_name: "", place_type: "", latitude: "", longitude: "", radius_meters: "50" });
       loadWorkplaces();
     } catch (e) {
@@ -137,10 +163,36 @@ export default function DoctorProfileScreen() {
     }
   };
 
+  const handleEditWorkplace = (wp) => {
+    setEditingWorkplace(wp);
+    setNewWorkplace({
+      place_name: wp.place_name || "",
+      place_type: wp.place_type ? wp.place_type.charAt(0).toUpperCase() + wp.place_type.slice(1) : "",
+      latitude: wp.latitude || "",
+      longitude: wp.longitude || "",
+      radius_meters: String(wp.radius_meters || "50"),
+    });
+    setShowAddWorkplace(true);
+  };
+
+  const handleCloseWorkplaceModal = () => {
+    setShowAddWorkplace(false);
+    setEditingWorkplace(null);
+    setNewWorkplace({ place_name: "", place_type: "", latitude: "", longitude: "", radius_meters: "50" });
+  };
+
   if (loading) {
     return (
       <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: theme.surface }]}>
         <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  if (error && !profile) {
+    return (
+      <View style={[tw`flex-1 justify-center`, { backgroundColor: theme.surface }]}>
+        <ErrorState message={t("couldNotLoad")} onRetry={reload} />
       </View>
     );
   }
@@ -228,12 +280,12 @@ export default function DoctorProfileScreen() {
 
           {workplaces.map((wp) => (
             <View key={wp.id} style={{ marginBottom: vs(12) }}>
-              <WorkplaceCard workplace={wp} onDelete={handleDeleteWorkplace} />
+              <WorkplaceCard workplace={wp} onEdit={handleEditWorkplace} onDelete={handleDeleteWorkplace} />
             </View>
           ))}
 
           <TouchableOpacity
-            onPress={() => setShowAddWorkplace(true)}
+            onPress={() => { setEditingWorkplace(null); setNewWorkplace({ place_name: "", place_type: "", latitude: "", longitude: "", radius_meters: "50" }); setShowAddWorkplace(true); }}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -316,6 +368,25 @@ export default function DoctorProfileScreen() {
 
           <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
+          <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
+            {t("security")}
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => router.push("/(doctor)/TwoFactorSetupScreen")}
+            style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: hs(16), borderRadius: hs(16) }, { backgroundColor: theme.surfaceContainerLowest }]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
+              <MaterialCommunityIcons name="shield-lock" size={hs(22)} color={theme.onSurfaceVariant} />
+              <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>
+                {t("twoFactorSettingsTitle")}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={hs(22)} color={theme.onSurfaceVariant} />
+          </TouchableOpacity>
+
+          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+
           <TouchableOpacity
             onPress={handleLogout}
             style={[{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), paddingVertical: vs(16), borderRadius: hs(16) }, { backgroundColor: theme.surfaceContainerLow }]}
@@ -326,35 +397,50 @@ export default function DoctorProfileScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={showAddWorkplace} transparent animationType="fade" onRequestClose={() => setShowAddWorkplace(false)}>
+      <Modal visible={showAddWorkplace} transparent animationType="fade" onRequestClose={handleCloseWorkplaceModal}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", paddingHorizontal: hs(24) }}>
           <View style={[{ borderRadius: hs(24), padding: hs(24), backgroundColor: theme.surface }]}>
-            <Text style={{ fontSize: fontScale(18), fontWeight: "700", marginBottom: vs(16), color: theme.onSurface }}>{t("addWorkplace")}</Text>
+            <Text style={{ fontSize: fontScale(18), fontWeight: "700", marginBottom: vs(16), color: theme.onSurface }}>
+              {editingWorkplace ? t("editWorkplace") : t("addWorkplace")}
+            </Text>
 
-            <InputField label={t("workplaceName")} placeholder={t("workplaceNamePlaceholder")} onChangeText={(v) => setNewWorkplace((p) => ({ ...p, place_name: v }))} />
+            <InputField label={t("workplaceName")} placeholder={t("workplaceNamePlaceholder")} value={newWorkplace.place_name} onChangeText={(v) => setNewWorkplace((p) => ({ ...p, place_name: v }))} />
 
-            <View style={{ flexDirection: "row", gap: hs(12) }}>
-              <View style={{ flex: 1 }}>
-                <InputField label={t("latitude")} placeholder="33.5138" keyboardType="decimal-pad" value={newWorkplace.latitude} onChangeText={(v) => setNewWorkplace((p) => ({ ...p, latitude: v }))} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <InputField label={t("longitude")} placeholder="36.2765" keyboardType="decimal-pad" value={newWorkplace.longitude} onChangeText={(v) => setNewWorkplace((p) => ({ ...p, longitude: v }))} />
-              </View>
-            </View>
+            <CustomSelect label={t("workplaceType")} value={newWorkplace.place_type} placeholder={t("selectPlaceholder")} options={WORKPLACE_TYPES} onSelect={(v) => setNewWorkplace((p) => ({ ...p, place_type: v }))} visible={workplaceTypeModal} setVisible={setWorkplaceTypeModal} />
+
+            <TouchableOpacity
+              onPress={() => setShowLocationPicker(true)}
+              style={{ flexDirection: "row", alignItems: "center", gap: hs(8), paddingVertical: vs(14), paddingHorizontal: hs(16), borderRadius: hs(12), borderWidth: 1, borderColor: theme.outlineVariant, backgroundColor: theme.surfaceContainerLowest, marginBottom: vs(12) }}
+            >
+              <MaterialCommunityIcons name="map-marker-plus" size={hs(20)} color={theme.primary} />
+              <Text style={{ fontSize: fontScale(14), fontWeight: "600", color: newWorkplace.latitude ? theme.onSurface : theme.onSurfaceVariant }}>
+                {newWorkplace.latitude ? `${t("latitude")}: ${Number(newWorkplace.latitude).toFixed(4)}, ${t("longitude")}: ${Number(newWorkplace.longitude).toFixed(4)}` : t("pickLocation")}
+              </Text>
+            </TouchableOpacity>
 
             <InputField label={t("geofenceRadius")} placeholder="50" keyboardType="number-pad" value={newWorkplace.radius_meters} onChangeText={(v) => setNewWorkplace((p) => ({ ...p, radius_meters: v }))} />
 
             <View style={{ flexDirection: "row", gap: hs(12) }}>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center", backgroundColor: theme.surfaceContainerLow }} onPress={() => setShowAddWorkplace(false)}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center", backgroundColor: theme.surfaceContainerLow }} onPress={handleCloseWorkplaceModal}>
                 <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: theme.onSurfaceVariant }}>{t("cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ flex: 1, paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center", backgroundColor: theme.primary }} onPress={handleAddWorkplace}>
-                <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>{t("add")}</Text>
+                <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                  {editingWorkplace ? t("update") : t("add")}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <LocationPickerModal
+        visible={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={(lat, lng) => setNewWorkplace((p) => ({ ...p, latitude: String(lat), longitude: String(lng) }))}
+        initialLatitude={newWorkplace.latitude}
+        initialLongitude={newWorkplace.longitude}
+      />
 
       <View style={tw`absolute bottom-0 left-0 right-0 z-50`}>
         <DoctorBottomNavBar activeTab="Profile" />

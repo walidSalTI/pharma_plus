@@ -1,6 +1,6 @@
 import { apiFetch } from "./apiClient";
 
-const BASE = "/profile";
+const BASE = "/patient/profile";
 
 export const getProfile = async () => {
   const response = await apiFetch(BASE);

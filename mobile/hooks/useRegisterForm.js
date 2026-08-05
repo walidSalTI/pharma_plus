@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { Alert } from "react-native";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
+import { useToast } from "@/src/context/ToastContext";
 import { registerUser } from "@/services/authService";
+import { setPendingVerifyEmail } from "@/services/tokenService";
 
 export const useRegisterForm = () => {
   const router = useRouter();
+  const { error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -29,6 +32,22 @@ export const useRegisterForm = () => {
   const [bloodModal, setBloodModal] = useState(false);
 
   const [errors, setErrors] = useState({});
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLocationLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setLocationLoading(false);
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({});
+      updateField("latitude", loc.coords.latitude);
+      updateField("longitude", loc.coords.longitude);
+      setLocationLoading(false);
+    })();
+  }, []);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -62,23 +81,22 @@ export const useRegisterForm = () => {
       const payload = {
         ...form,
         age: parseInt(form.age, 10),
-        latitude: form.latitude ? parseFloat(form.latitude) : undefined,
-        longitude: form.longitude ? parseFloat(form.longitude) : undefined,
-        gender,
+        latitude: form.latitude != null ? parseFloat(form.latitude) : undefined,
+        longitude: form.longitude != null ? parseFloat(form.longitude) : undefined,
+        gender: gender.toLowerCase(),
         blood_type: bloodType,
         password_confirmation: form.password,
       };
 
       const response = await registerUser(payload);
-      if (response.data?.token) {
-        router.replace("/");
-      }
+      await setPendingVerifyEmail(form.email, "patient");
+      router.replace("/(auth)/EmailVerifyScreen");
     } catch (error) {
       const message =
         error.message?.includes("409")
           ? "Email already exists"
           : error.message || "Registration failed.";
-      Alert.alert("Error", message);
+      toastError(message);
     } finally {
       setLoading(false);
     }
@@ -86,6 +104,7 @@ export const useRegisterForm = () => {
 
   return {
     loading,
+    locationLoading,
     showPassword,
     setShowPassword,
     showConfirmPassword,

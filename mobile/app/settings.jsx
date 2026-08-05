@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   SafeAreaView,
   ScrollView,
   Text,
@@ -11,60 +10,76 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import tw from "twrnc";
-import { CustomSelect, InputField } from "@/components/FormInputs";
+import { InputField } from "@/components/FormInputs";
 import { logoutUser } from "@/services/authService";
-import { clearToken } from "@/services/tokenService";
+import { logoutDoctor } from "@/services/doctorAuthService";
+import { logoutRep } from "@/services/repAuthService";
+import { clearToken, getUserRole } from "@/services/tokenService";
+import { clearAllReminders } from "@/services/reminderCleanup";
 import { deleteAccount, getProfile, updateProfile } from "@/services/profileService";
+import { getRepDashboard } from "@/services/repService";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
+import { useToast } from "@/src/context/ToastContext";
+import { useCustomAlert } from "@/src/context/CustomAlertContext";
+import { useAuth } from "@/src/context/AuthContext";
 import { webShadow } from "@/constants/shadow";
 import { useResponsive } from "@/constants/responsive";
-
-const BLOOD_TYPES = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
-const GENDERS = ["Male", "Female"];
+import ErrorState from "@/components/ErrorState";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { language, toggleLanguage, t } = useLanguage();
   const { theme, isDark, toggleTheme } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
+  const { success: toastSuccess, error: toastError } = useToast();
+  const { confirm } = useCustomAlert();
+  const { signOut } = useAuth();
 
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fName, setFName] = useState("");
   const [lName, setLName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [age, setAge] = useState("");
-  const [gender, setGender] = useState("");
-  const [bloodType, setBloodType] = useState("");
   const [location, setLocation] = useState("");
-  const [showGender, setShowGender] = useState(false);
-  const [showBlood, setShowBlood] = useState(false);
+  const [company, setCompany] = useState("");
   const [errors, setErrors] = useState({});
+
+  const isRep = role === "rep";
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
-      const data = await getProfile();
-      setFName(data.f_name || "");
-      setLName(data.l_name || "");
-      setEmail(data.email || "");
-      setPhone(data.phone_number || "");
-      setAge(data.age ? String(data.age) : "");
-      setGender(
-        data.gender
-          ? data.gender.charAt(0).toUpperCase() + data.gender.slice(1)
-          : "",
-      );
-      setBloodType(data.blood_type || "");
-      setLocation(data.location || "");
+      const currentRole = await getUserRole();
+      setRole(currentRole);
+
+      if (currentRole === "rep") {
+        const data = await getRepDashboard();
+        const rep = data?.data?.rep || {};
+        setFName(rep.f_name || rep.name?.split(" ")[0] || "");
+        setLName(rep.l_name || rep.name?.split(" ").slice(1).join(" ") || "");
+        setEmail(rep.email || "");
+        setCompany(rep.company || "");
+      } else {
+        const data = await getProfile();
+        setFName(data.f_name || "");
+        setLName(data.l_name || "");
+        setEmail(data.email || "");
+        setPhone(data.phone_number || "");
+        setAge(data.age ? String(data.age) : "");
+        setLocation(data.location || "");
+      }
     } catch {
-      Alert.alert(t("error"), t("failedLoad"));
+      setError(true);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     fetchProfile();
@@ -74,7 +89,7 @@ export default function SettingsScreen() {
     const errs = {};
     if (!fName.trim()) errs.fName = t("fNameRequired");
     if (!lName.trim()) errs.lName = t("lNameRequired");
-    if (age && (isNaN(Number(age)) || Number(age) < 1 || Number(age) > 150))
+    if (!isRep && age && (isNaN(Number(age)) || Number(age) < 1 || Number(age) > 150))
       errs.age = t("invalidAge");
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -87,65 +102,83 @@ export default function SettingsScreen() {
       await updateProfile({
         f_name: fName.trim(),
         l_name: lName.trim(),
-        age: age ? Number(age) : undefined,
-        gender: gender ? gender.toLowerCase() : undefined,
-        blood_type: bloodType || undefined,
-        location: location.trim() || undefined,
-        phone_number: phone.trim() || undefined,
+        ...(isRep ? {} : {
+          age: age ? Number(age) : undefined,
+          location: location.trim() || undefined,
+          phone_number: phone.trim() || undefined,
+        }),
       });
-      Alert.alert(t("saved"), t("profileSaved"));
+      toastSuccess(t("profileSaved"));
     } catch (e) {
-      Alert.alert(t("error"), e.message || t("failedUpdate"));
+      toastError(e.message || t("failedUpdate"));
     } finally {
       setSaving(false);
     }
   };
 
+  const performLogout = async () => {
+    try {
+      if (role === "doctor") {
+        await logoutDoctor();
+      } else if (role === "rep") {
+        await logoutRep();
+      } else {
+        await logoutUser();
+      }
+    } catch {
+      // Ignore network failures; token is cleared locally regardless.
+    }
+    await clearAllReminders();
+    await clearToken();
+    signOut();
+    router.replace("/");
+  };
+
   const handleLogout = () => {
-    Alert.alert(t("logout"), t("logoutConfirm"), [
-      { text: t("cancel"), style: "cancel" },
-      {
-        text: t("logout"),
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await logoutUser();
-          } catch {
-            clearToken();
-          }
-          router.replace("/LoginScreen");
-        },
-      },
-    ]);
+    confirm({
+      title: t("logout"),
+      message: t("logoutConfirm"),
+      confirmText: t("logout"),
+      cancelText: t("cancel"),
+      variant: "logout",
+      onConfirm: performLogout,
+    });
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      t("deleteAccount"),
-      t("deleteConfirm"),
-      [
-        { text: t("cancel"), style: "cancel" },
-        {
-          text: t("delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteAccount();
-              clearToken();
-              router.replace("/LoginScreen");
-            } catch (e) {
-              Alert.alert(t("error"), e.message || t("failedDelete"));
-            }
-          },
-        },
-      ],
-    );
+    if (isRep) return;
+    confirm({
+      title: t("deleteAccount"),
+      message: t("deleteConfirm"),
+      confirmText: t("delete"),
+      cancelText: t("cancel"),
+      variant: "delete",
+      onConfirm: async () => {
+        try {
+          await deleteAccount();
+          await clearAllReminders();
+          await clearToken();
+          signOut();
+          router.replace("/");
+        } catch (e) {
+          toastError(e.message || t("failedDelete"));
+        }
+      },
+    });
   };
 
   if (loading) {
     return (
       <View style={[tw`flex-1 items-center justify-center`, { backgroundColor: theme.surface }]}>
         <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[tw`flex-1 justify-center`, { backgroundColor: theme.surface }]}>
+        <ErrorState message={t("couldNotLoad")} onRetry={fetchProfile} />
       </View>
     );
   }
@@ -166,7 +199,7 @@ export default function SettingsScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: vs(48) }}
+        contentContainerStyle={{ paddingBottom: isRep ? vs(192) : vs(48) }}
       >
         <View style={{ alignItems: "center", paddingTop: vs(32), paddingBottom: vs(24) }}>
           <View style={[{ width: hs(80), height: hs(80), borderRadius: hs(40), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.primaryContainer }]}>
@@ -217,50 +250,41 @@ export default function SettingsScreen() {
               editable={false}
               placeholder="email@example.com"
             />
-            <InputField
-              label={t("phone")}
-              icon="phone-outline"
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+1 234 567 890"
-              keyboardType="phone-pad"
-            />
-            <InputField
-              label={t("age")}
-              icon="calendar-outline"
-              value={age}
-              onChangeText={setAge}
-              placeholder="25"
-              keyboardType="number-pad"
-              error={errors.age}
-            />
-            <InputField
-              label={t("location")}
-              icon="map-marker-outline"
-              value={location}
-              onChangeText={setLocation}
-              placeholder={t("cityAddress")}
-            />
-            <View style={{ flexDirection: "row", gap: hs(12) }}>
-              <CustomSelect
-                label={t("gender")}
-                value={gender}
-                placeholder={t("selectPlaceholder")}
-                options={GENDERS}
-                onSelect={setGender}
-                visible={showGender}
-                setVisible={setShowGender}
+            {isRep ? (
+              <InputField
+                label={t("company")}
+                icon="domain"
+                value={company}
+                editable={false}
               />
-              <CustomSelect
-                label={t("bloodType")}
-                value={bloodType}
-                placeholder={t("selectPlaceholder")}
-                options={BLOOD_TYPES}
-                onSelect={setBloodType}
-                visible={showBlood}
-                setVisible={setShowBlood}
-              />
-            </View>
+            ) : (
+              <>
+                <InputField
+                  label={t("phone")}
+                  icon="phone-outline"
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="+1 234 567 890"
+                  keyboardType="phone-pad"
+                />
+                <InputField
+                  label={t("age")}
+                  icon="calendar-outline"
+                  value={age}
+                  onChangeText={setAge}
+                  placeholder="25"
+                  keyboardType="number-pad"
+                  error={errors.age}
+                />
+                <InputField
+                  label={t("location")}
+                  icon="map-marker-outline"
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholder={t("cityAddress")}
+                />
+              </>
+            )}
           </View>
 
           <TouchableOpacity
@@ -325,6 +349,21 @@ export default function SettingsScreen() {
             </View>
           </TouchableOpacity>
 
+          {isRep && (
+            <TouchableOpacity
+              onPress={() => router.push("/(rep)/TwoFactorSetupScreen")}
+              style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: hs(16), borderRadius: hs(16), marginTop: vs(12) }, { backgroundColor: theme.surfaceContainerLowest }]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
+                <MaterialCommunityIcons name="shield-lock" size={hs(22)} color={theme.onSurfaceVariant} />
+                <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>
+                  {t("twoFactorSettingsTitle")}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={hs(22)} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
+          )}
+
           <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
           <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
@@ -341,15 +380,17 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleDeleteAccount}
-            style={[{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), paddingVertical: vs(16), borderRadius: hs(16) }, { backgroundColor: theme.errorContainer + "20" }]}
-          >
-            <MaterialCommunityIcons name="delete-outline" size={hs(20)} color={theme.error} />
-            <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.error }]}>
-              {t("deleteAccount")}
-            </Text>
-          </TouchableOpacity>
+          {!isRep && (
+            <TouchableOpacity
+              onPress={handleDeleteAccount}
+              style={[{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), paddingVertical: vs(16), borderRadius: hs(16) }, { backgroundColor: theme.errorContainer + "20" }]}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={hs(20)} color={theme.error} />
+              <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.error }]}>
+                {t("deleteAccount")}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

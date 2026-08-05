@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   ScrollView,
   Text,
@@ -9,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import tw from "twrnc";
@@ -18,6 +18,8 @@ import { useAppTheme } from "@/src/theme/ThemeContext";
 import { webShadow } from "@/constants/shadow";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useResponsive } from "@/constants/responsive";
+import { useUserName } from "@/hooks/useUserName";
+import { useRouter } from "expo-router";
 import {
   getChronicDiseases,
   getMyDiseases,
@@ -47,9 +49,11 @@ const CATEGORY_ICONS = {
 const SEVERITIES = ["low", "medium", "high"];
 
 export default function MedicalFileScreen() {
+  const router = useRouter();
   const { t } = useLanguage();
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
+  const { userName } = useUserName();
 
   const [loading, setLoading] = useState(true);
   const [catalog, setCatalog] = useState([]);
@@ -285,12 +289,15 @@ export default function MedicalFileScreen() {
               <View style={{ width: hs(36), height: hs(36), borderRadius: hs(18), backgroundColor: theme.surfaceContainerHighest, overflow: "hidden" }}>
                 <Image
                   source={{
-                    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuD3CEvmRFKO2m4j50c0kqekJBawo4DjjelTxZimH6WUOe56gLIVOm3E8Q9X4FE2A45L0NpG96dX13R_U9hbNfC8cEZAat6HYZsYB1K9i5FCM0F5A7VrfP46CV_AMyZJGFO6yTgRpTjDETcbDUozUHUzQ1YVbLLANMIMO2RWWzw8lWS5UvLWjxD-Uy6xQ6XQ0HdPoT_0Wseieax9DZkDfNn-nEy7jDTjCxQNy-ER76AmqbX0fFK5bxO-VHausQPmwoqH97qj8-Klm1M",
+                    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuD3CEvmRFKO2m4j50c0kqekJBawo4DjjelTxZimH6WUOe56gLIVOm3E8Q9X4FE2A45L0NpG96dX13R_U9hbNfC8cEZAat6HYZsYB1K9i5FCM0F5A7VrfP46CV_AMyZJGFO6yTgRpTjDETcbDUozUHUzQ1YVbLLANMIMO2RWWzw8lWS5UvLWjxD-Uy6xQ6X0HdPoT_0Wseieax9DZkDfNn-nEy7jDTjCxQNy-ER76AmqbX0fFK5bxO-VHausQPmwoqH97qj8-Klm1M",
                   }}
                   style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={200}
                 />
               </View>
-              <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>Vitalis</Text>
+              <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName || "Pharma"}</Text>
             </View>
             <TouchableOpacity style={{ padding: hs(8), borderRadius: hs(16) }}>
               <MaterialCommunityIcons name="bell-outline" size={hs(24)} color={theme.onSurfaceVariant} />

@@ -1,6 +1,6 @@
 import { apiFetch } from "./apiClient";
 
- const BASE = "/diseases";
+const BASE = "/diseases";
 
 export const getChronicDiseases = async () => {
   try {
@@ -12,20 +12,32 @@ export const getChronicDiseases = async () => {
 };
 
 export const getMyDiseases = async () => {
-  const response = await apiFetch(BASE);
-  return response.data || response;
+  try {
+    const response = await apiFetch(BASE);
+    return response.data || response;
+  } catch {
+    return [];
+  }
 };
 
 export const addDisease = async (data) => {
-  const response = await apiFetch(BASE, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  return response.data || response;
+  try {
+    const response = await apiFetch(BASE, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.data || response;
+  } catch {
+    return null;
+  }
 };
 
 export const deleteDisease = async (recordId) => {
-  return apiFetch(`${BASE}/${recordId}`, {
-    method: "DELETE",
-  });
+  try {
+    return await apiFetch(`${BASE}/${recordId}`, {
+      method: "DELETE",
+    });
+  } catch {
+    return null;
+  }
 };

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getWallet } from "@/services/walletService";
+import { saveMedsCache, getMedsCache } from "@/services/medicationStorage";
 
 const to12Hour = (time24) => {
   const [h, m] = time24.split(":").map(Number);
@@ -37,6 +38,7 @@ const toUIMed = (item) => {
   const next = findNextDose(item.schedules);
   return {
     id: item.id,
+    medicationId: item.medication_id,
     name: item.trade_name,
     dose: item.dosage,
     time: next ? to12Hour(next.dose_time) : "As Needed",
@@ -56,17 +58,30 @@ const toUIMed = (item) => {
 export const useMedicationsData = () => {
   const [meds, setMeds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const data = await getWallet();
-      const active = (Array.isArray(data) ? data : []).filter(
-        (item) => item.is_active !== false,
-      );
+      const items = Array.isArray(data) ? data : [];
+      await saveMedsCache(items);
+      setOffline(false);
+      const active = items.filter((item) => item.is_active !== false);
       setMeds(active.map(toUIMed));
     } catch {
-      setMeds([]);
+      setError(true);
+      const cached = await getMedsCache();
+      if (Array.isArray(cached) && cached.length > 0) {
+        const active = cached.filter((item) => item.is_active !== false);
+        setMeds(active.map(toUIMed));
+        setOffline(true);
+      } else {
+        setMeds([]);
+        setOffline(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -88,6 +103,8 @@ export const useMedicationsData = () => {
   return {
     meds,
     loading,
+    error,
+    offline,
     nextMed,
     otherMeds,
     refreshMedications: loadData,

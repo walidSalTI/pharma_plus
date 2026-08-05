@@ -2,15 +2,13 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { useToast } from "@/src/context/ToastContext";
 import { loginDoctor } from "@/services/doctorAuthService";
-import { setToken, setUserRole } from "@/services/tokenService";
-import * as SecureStore from "expo-secure-store";
-
-const PENDING_2FA_TOKEN_KEY = "pending_2fa_token";
-const PENDING_2FA_ROLE_KEY = "pending_2fa_role";
+import { setToken, setUserRole, setPending2FA } from "@/services/tokenService";
+import { useAuth } from "@/src/context/AuthContext";
 
 export const useDoctorLoginForm = () => {
   const router = useRouter();
   const { error: toastError } = useToast();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,8 +35,7 @@ export const useDoctorLoginForm = () => {
       const response = await loginDoctor(email, password);
 
       if (response.two_factor) {
-        await SecureStore.setItemAsync(PENDING_2FA_TOKEN_KEY, response.two_factor_token);
-        await SecureStore.setItemAsync(PENDING_2FA_ROLE_KEY, "doctor");
+        await setPending2FA(response.two_factor_token, "doctor");
         router.push("/(auth-doctor)/TwoFactorVerifyScreen");
         return;
       }
@@ -46,6 +43,7 @@ export const useDoctorLoginForm = () => {
       if (response.data?.token) {
         await setToken(response.data.token);
         await setUserRole("doctor");
+        signIn("doctor");
         router.replace("/(doctor)/DoctorDashboard");
       }
     } catch (error) {
