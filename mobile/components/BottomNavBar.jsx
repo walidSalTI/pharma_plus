@@ -16,12 +16,12 @@ export default function BottomNavBar({ activeTab }) {
       name: "Meds",
       label: t("meds"),
       icon: "pill",
-      route: "/",
+      route: "/MedicationsScreen",
     },
     {
-      name: "Health",
-      label: t("health"),
-      icon: "heart-pulse",
+      name: "Order",
+      label: t("order"),
+      icon: "cart",
       route: "/MedicationRequest",
     },
     {

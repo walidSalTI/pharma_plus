@@ -6,12 +6,12 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "twrnc";
 import { CustomSelect, InputField } from "@/components/FormInputs";
 import LocationPickerModal from "@/components/LocationPickerModal";
@@ -64,11 +64,11 @@ export default function DoctorRegisterScreen() {
         <View style={{ paddingHorizontal: hs(24), paddingTop: vs(12) }}>
           <TouchableOpacity
             onPress={() => (currentStep === 1 ? router.back() : prevStep())}
-            style={{ flexDirection: "row", alignItems: "center", marginBottom: vs(8) }}
+            style={{ flexDirection: "row", alignItems: "center", marginBottom: vs(8), padding: hs(6), marginHorizontal: -hs(6) }}
           >
             <MaterialCommunityIcons name="arrow-left" size={hs(22)} color={theme.primary} />
             <Text style={[{ fontSize: fontScale(18), marginLeft: hs(8) }, { color: theme.onSurfaceVariant }]}>
-              {currentStep === 1 ? t("back") : t("back")}
+              {t("back")}
             </Text>
           </TouchableOpacity>
         </View>

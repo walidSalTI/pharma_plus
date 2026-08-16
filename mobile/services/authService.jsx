@@ -1,5 +1,5 @@
 import { apiFetch } from "./apiClient";
-import { setToken, setUserRole, clearToken, clearUserRole } from "./tokenService";
+import { setToken, setUserRole, setUserName, clearToken, clearUserRole, clearUserName } from "./tokenService";
 
 const safeSetToken = async (token) => {
   try { await setToken(token); } catch {}
@@ -7,11 +7,17 @@ const safeSetToken = async (token) => {
 const safeSetUserRole = async (role) => {
   try { await setUserRole(role); } catch {}
 };
+const safeSetUserName = async (name) => {
+  try { await setUserName(name); } catch {}
+};
 const safeClearToken = async () => {
   try { await clearToken(); } catch {}
 };
 const safeClearUserRole = async () => {
   try { await clearUserRole(); } catch {}
+};
+const safeClearUserName = async () => {
+  try { await clearUserName(); } catch {}
 };
 
 export const registerUser = async (userData) => {
@@ -22,6 +28,7 @@ export const registerUser = async (userData) => {
   if (data.data?.token) {
     await safeSetToken(data.data.token);
     await safeSetUserRole("patient");
+    await safeSetUserName(data.data?.user?.f_name || data.data?.user?.first_name);
   }
   return data;
 };
@@ -34,6 +41,7 @@ export const loginUser = async (email, password) => {
   if (data.data?.token) {
     await safeSetToken(data.data.token);
     await safeSetUserRole("patient");
+    await safeSetUserName(data.data?.user?.f_name || data.data?.user?.first_name);
   }
   return data;
 };
@@ -44,18 +52,19 @@ export const logoutUser = async () => {
   } finally {
     await safeClearToken();
     await safeClearUserRole();
+    await safeClearUserName();
   }
 };
 
 export const forgotPassword = async (email) => {
-  return apiFetch(`/patient/forgot-password`, {
+  return apiFetch(`/auth/forgot-password`, {
     method: "POST",
     body: JSON.stringify({ email }),
   });
 };
 
 export const resetPassword = async (email, code, password, password_confirmation) => {
-  return apiFetch(`/patient/reset-password`, {
+  return apiFetch(`/auth/reset-password`, {
     method: "POST",
     body: JSON.stringify({ email, code, password, password_confirmation }),
   });

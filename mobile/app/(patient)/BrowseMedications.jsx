@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -21,6 +20,7 @@ import { useResponsive } from "@/constants/responsive";
 import { useInteractionCheck } from "@/hooks/useInteractionCheck";
 import InteractionAlertModal from "@/components/InteractionAlertModal";
 import ErrorState from "@/components/ErrorState";
+import SettingsButton from "@/components/SettingsButton";
 
 export default function BrowseMedications() {
   const router = useRouter();
@@ -36,7 +36,7 @@ export default function BrowseMedications() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedMeds, setSelectedMeds] = useState([]);
   const {
     checkAndConfirm,
     checking,
@@ -58,7 +58,6 @@ export default function BrowseMedications() {
       const params = { page: pageNum };
       if (query) {
         params.name = query;
-        params.active_ingredient = query;
       }
       const { data, meta } = await getMedicationsPage(params);
       if (!mountedRef.current) return;
@@ -103,18 +102,11 @@ export default function BrowseMedications() {
   };
 
   const toggle = useCallback((med) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(med.id)) {
-        next.delete(med.id);
-      } else {
-        next.add(med.id);
-      }
-      return next;
+    setSelectedMeds((prev) => {
+      const exists = prev.some((m) => m.id === med.id);
+      return exists ? prev.filter((m) => m.id !== med.id) : [...prev, med];
     });
   }, []);
-
-  const selectedMeds = medications.filter((m) => selectedIds.has(m.id));
 
   // Run the drug-interaction / chronic-disease safety check before allowing the
   // patient to proceed to the dosage setup page. Rank 0 proceeds silently;
@@ -123,16 +115,26 @@ export default function BrowseMedications() {
   // patient may only proceed at their own risk.
   const handleAddSelected = async () => {
     const names = selectedMeds.map((m) => m.trade_name).filter(Boolean);
-    const proceed = await checkAndConfirm(names);
-    if (!proceed) return;
+    const result = await checkAndConfirm(names);
+    if (!result) return;
+
+    // Use the browse-selected id as the baseline and enrich it with the
+    // backend-resolved medication id when the precheck provides one.
+    const resolved = result.resolved || {};
+    const enriched = selectedMeds.map((med) => {
+      const matches = resolved[med.trade_name];
+      const resolvedId = Array.isArray(matches) && matches.length > 0 ? matches[0].id : null;
+      return resolvedId ? { ...med, id: resolvedId } : med;
+    });
+
     router.push({
       pathname: "/AddMedication",
-      params: { selectedMeds: JSON.stringify(selectedMeds) },
+      params: { selectedMeds: JSON.stringify(enriched) },
     });
   };
 
   const renderItem = useCallback(({ item }) => {
-    const isSelected = selectedIds.has(item.id);
+    const isSelected = selectedMeds.some((m) => m.id === item.id);
     const ingredient = item.active_ingredients?.[0];
     const ratio = ingredient?.active_ratio?.[0] || "";
     
@@ -142,14 +144,12 @@ export default function BrowseMedications() {
         onPress={() => toggle(item)}
         style={[
           { flexDirection: "row", alignItems: "center", gap: hs(16), padding: hs(16), marginBottom: vs(10), borderRadius: hs(16) },
-          isSelected
-            ? { backgroundColor: "#f0fdfa", borderWidth: 1, borderColor: theme.primary }
-            : { backgroundColor: isDark ? theme.surfaceContainerLow : theme.surfaceContainerLowest, borderWidth: 1, borderColor: theme.outlineVariant },
-          !isSelected && webShadow({ elevation: 2, opacity: 0.04, radius: 6, offsetY: 2 }),
+          { backgroundColor: isDark ? theme.surfaceContainerLow : theme.surfaceContainerLowest, borderWidth: 1, borderColor: theme.outlineVariant },
+          webShadow({ elevation: 2, opacity: 0.04, radius: 6, offsetY: 2 }),
         ]}
       >
-        <View style={[{ width: hs(48), height: hs(48), borderRadius: hs(12), alignItems: "center", justifyContent: "center" }, { backgroundColor: isSelected ? "#f0fdfa" : theme.surfaceContainerLow }]}>
-          <MaterialCommunityIcons name="pill" size={hs(24)} color={isSelected ? theme.primary : theme.primary} />
+        <View style={[{ width: hs(48), height: hs(48), borderRadius: hs(12), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLow }]}>
+          <MaterialCommunityIcons name="pill" size={hs(24)} color={theme.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>
@@ -171,7 +171,7 @@ export default function BrowseMedications() {
         </View>
       </TouchableOpacity>
     );
-  }, [selectedIds, theme, isDark, hs, vs, fontScale, toggle]);
+  }, [selectedMeds, theme, isDark, hs, vs, fontScale, toggle]);
 
   const renderFooter = () => {
     if (!loadingMore) return null;
@@ -236,17 +236,7 @@ export default function BrowseMedications() {
               </Text>
             </View>
           </View>
-          <View style={[{ width: hs(36), height: hs(36), borderRadius: hs(18), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLow }]}>
-            <Image
-              source={{
-                uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfLhIlW0Y-iIAP6lRAJVihBzpDweIPutQwgS8d_uwfMAB2zAg33hzNqQKyP1mo_hmGmyP_KTgssrm8tiJ88EaI5vpkuw-dsBYnU5b_j6tnnqRmycqBAFqGCwV_opyUHrPGEH7YCGYRHW8_z0t2i4ksfFIQ_R6sg-7_FZccayXYLRcgwv6bSzF7JMKqN4pxRC7Ou7aXM362L1e3plCV1SfqaqeSYbn1iEpuZT7QgtNtZNSy3JS09Okj8NoWq7qu0r5u0Npdv_CKN1o",
-              }}
-              style={{ width: hs(28), height: hs(28), borderRadius: hs(14) }}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={200}
-            />
-          </View>
+          <SettingsButton />
         </View>
 
         <View style={{ paddingHorizontal: hs(24), marginTop: vs(16), marginBottom: vs(4) }}>
@@ -254,7 +244,7 @@ export default function BrowseMedications() {
             <MaterialCommunityIcons name="magnify" size={hs(20)} color={theme.outline} />
             <TextInput
               style={[{ flex: 1, marginLeft: hs(12), fontSize: fontScale(16) }, { color: theme.onSurface }]}
-               placeholder={t("searchByNameOrIngredient")}
+               placeholder={t("searchByName")}
               placeholderTextColor={theme.outline}
               value={search}
               onChangeText={setSearch}

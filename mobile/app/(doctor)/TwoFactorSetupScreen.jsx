@@ -43,7 +43,7 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
     if (step === "setup") {
       inputRefs.current[0]?.focus();
     }
-  }, [step]);
+  }, [step, inputRefs]);
 
   const bgColor = role === "doctor" ? theme.tertiaryContainer : theme.primaryContainer;
 

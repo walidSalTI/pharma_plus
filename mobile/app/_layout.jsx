@@ -93,7 +93,7 @@ function RootNavigator() {
         responseListener.current.remove();
       }
     };
-  }, []);
+  }, [router]);
 
   // 2. إخفاء شاشة البدء بعد اكتمال فحص الجلسة
   useEffect(() => {

@@ -25,7 +25,6 @@ export default function EmailVerifyScreen({ role = "patient" }) {
     resendLoading,
     error,
     resendTimer,
-    email,
     inputRefs,
     handleDigitChange,
     handleKeyDown,
@@ -35,7 +34,7 @@ export default function EmailVerifyScreen({ role = "patient" }) {
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
-  }, []);
+  }, [inputRefs]);
 
   const bgColor = role === "doctor" ? theme.tertiaryContainer : theme.primaryContainer;
 

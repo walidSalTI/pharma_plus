@@ -26,9 +26,18 @@ import { useResponsive } from "@/constants/responsive";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const normalizeTime = (timeStr) => {
+  if (!timeStr) return timeStr;
+  return String(timeStr)
+    .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/\s*ص\s*$/, " AM")
+    .replace(/\s*م\s*$/, " PM");
+};
+
 const to24Hour = (timeStr) => {
-  if (!timeStr) return "12:00";
-  const [time, modifier] = timeStr.trim().split(" ");
+  const normalized = normalizeTime(timeStr);
+  if (!normalized) return "12:00";
+  const [time, modifier] = normalized.trim().split(" ");
   let [hours, minutes] = time.split(":").map(Number);
   if (modifier === "PM" && hours !== 12) hours += 12;
   if (modifier === "AM" && hours === 12) hours = 0;
@@ -36,7 +45,7 @@ const to24Hour = (timeStr) => {
 };
 
 const formatTime = (date) =>
-  date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+  date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
 
 export default function AddMedication() {
   const router = useRouter();
@@ -176,7 +185,8 @@ export default function AddMedication() {
   };
 
   const stringToDate = (timeStr) => {
-    const [time, modifier] = timeStr.split(" ");
+    const normalized = normalizeTime(timeStr);
+    const [time, modifier] = (normalized || "12:00 AM").split(" ");
     let [hours, minutes] = time.split(":").map(Number);
     if (modifier === "PM" && hours !== 12) hours += 12;
     if (modifier === "AM" && hours === 12) hours = 0;

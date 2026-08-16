@@ -12,13 +12,14 @@ export const useInteractionCheck = () => {
     try {
       const result = await checkInteractions(medicationNames);
       if (result.rank === RANKS.SAFE) {
-        return true;
+        return result;
       }
       setPayload(result);
       setVisible(true);
-      return await new Promise((resolve) => {
+      const proceed = await new Promise((resolve) => {
         resolverRef.current = resolve;
       });
+      return proceed ? result : null;
     } finally {
       setChecking(false);
     }

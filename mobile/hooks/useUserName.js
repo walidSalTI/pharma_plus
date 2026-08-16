@@ -1,28 +1,29 @@
 import { useState, useEffect } from "react";
 import { getProfile } from "@/services/profileService";
-
-let cachedName = null;
+import { getUserName, setUserName } from "@/services/tokenService";
 
 export const useUserName = () => {
-  const [userName, setUserName] = useState(cachedName || "");
-  const [loading, setLoading] = useState(!cachedName);
+  const [userName, setUserNameState] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (cachedName) {
-      setUserName(cachedName);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
     (async () => {
       try {
+        const stored = await getUserName();
+        if (cancelled) return;
+        if (stored) {
+          setUserNameState(stored);
+          setLoading(false);
+          return;
+        }
         const data = await getProfile();
         if (cancelled) return;
         const name = data.f_name || data.first_name || "";
-        cachedName = name;
-        setUserName(name);
+        if (name) await setUserName(name);
+        setUserNameState(name);
       } catch {
-        if (!cancelled) setUserName("");
+        if (!cancelled) setUserNameState("");
       } finally {
         if (!cancelled) setLoading(false);
       }

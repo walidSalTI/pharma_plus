@@ -6,16 +6,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import tw from "twrnc";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
+import AuthControls from "@/components/AuthControls";
 
 export default function Index() {
   const router = useRouter();
   const { t } = useLanguage();
   const { theme } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
+  const insets = useSafeAreaInsets();
 
   const roles = [
     {
@@ -52,6 +55,10 @@ export default function Index() {
           backgroundColor: theme.primaryContainer,
         }}
       />
+
+      <View style={{ position: "absolute", top: insets.top + vs(8), right: hs(16), zIndex: 20 }}>
+        <AuthControls />
+      </View>
 
       <View style={[tw`flex-1 justify-center px-6`]}>
         <View style={{ alignItems: "center", marginBottom: vs(48) }}>

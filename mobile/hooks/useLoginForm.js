@@ -2,13 +2,15 @@ import { useState, useCallback } from "react";
 import { useRouter } from "expo-router";
 import { useToast } from "@/src/context/ToastContext";
 import { loginUser } from "@/services/authService";
+import { setToken, setUserRole } from "@/services/tokenService";
 import { useAuth } from "@/src/context/AuthContext";
+import { isMockLoginEnabled, isConnectionError } from "@/services/devMocks";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const useLoginForm = () => {
   const router = useRouter();
-  const { error: toastError } = useToast();
+  const { error: toastError, info: toastInfo } = useToast();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -63,6 +65,14 @@ export const useLoginForm = () => {
         router.replace("/(patient)/MedicationsScreen");
       }
     } catch (error) {
+      if (isMockLoginEnabled() && isConnectionError(error)) {
+        await setToken("mock-session");
+        await setUserRole("patient");
+        signIn("patient");
+        toastInfo("Backend unreachable — signed in with demo session");
+        router.replace("/(patient)/MedicationsScreen");
+        return;
+      }
       const message =
         error.message?.includes("401") || error.message?.includes("credentials")
           ? "Invalid email or password"

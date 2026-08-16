@@ -15,6 +15,7 @@ export default function InteractionAlertModal({ payload, visible, onProceed, onC
   const isError = payload.rank === RANKS.ERROR || payload.isError;
   const isHighRisk = payload.rank >= RANKS.HIGH;
   const affected = Array.isArray(payload.medications) ? payload.medications : [];
+  const conflicts = Array.isArray(payload.conflicts) ? payload.conflicts : [];
   const title = isError
     ? t("interactionCheckUnavailableTitle")
     : isHighRisk
@@ -33,31 +34,99 @@ export default function InteractionAlertModal({ payload, visible, onProceed, onC
             </Text>
           </View>
 
-          {affected.length > 0 ? (
+          {isError ? (
+            <>
+              {affected.length > 0 ? (
+                <>
+                  <Text style={{ fontSize: fontScale(14), fontWeight: "700", marginBottom: vs(8), color: theme.onSurface }}>
+                    {t("affectedMeds")}
+                  </Text>
+                  <ScrollView style={{ maxHeight: vs(160), marginBottom: vs(12) }} showsVerticalScrollIndicator={false}>
+                    {affected.map((name, idx) => (
+                      <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: hs(8), paddingVertical: vs(4) }}>
+                        <MaterialCommunityIcons name="pill" size={hs(16)} color={theme.primary} />
+                        <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>{name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : null}
+              <Text style={{ fontSize: fontScale(13), lineHeight: fontScale(18), marginBottom: vs(12), color: theme.onSurfaceVariant }}>
+                {t("interactionCheckUnavailableDesc")}
+              </Text>
+            </>
+          ) : conflicts.length > 0 ? (
             <>
               <Text style={{ fontSize: fontScale(14), fontWeight: "700", marginBottom: vs(8), color: theme.onSurface }}>
-                {t("affectedMeds")}
+                {t("interactionsDetected")}
               </Text>
-              <ScrollView style={{ maxHeight: vs(160), marginBottom: vs(12) }} showsVerticalScrollIndicator={false}>
-                {affected.map((name, idx) => (
-                  <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: hs(8), paddingVertical: vs(4) }}>
-                    <MaterialCommunityIcons name="pill" size={hs(16)} color={theme.primary} />
-                    <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>{name}</Text>
-                  </View>
-                ))}
+              <ScrollView style={{ maxHeight: vs(200), marginBottom: vs(12) }} showsVerticalScrollIndicator={false}>
+                {conflicts.map((conflict, idx) => {
+                  const high = Number(conflict.risk_level) >= RANKS.HIGH;
+                  const pairColor = high ? "#dc2626" : theme.primary;
+                  return (
+                    <View
+                      key={idx}
+                      style={{
+                        padding: hs(12),
+                        borderRadius: hs(12),
+                        marginBottom: vs(8),
+                        backgroundColor: theme.surfaceContainerLow,
+                        borderLeftWidth: 3,
+                        borderLeftColor: high ? "#dc2626" : "#d97706",
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: hs(6) }}>
+                        <MaterialCommunityIcons name="pill" size={hs(16)} color={pairColor} />
+                        <Text style={{ fontSize: fontScale(14), fontWeight: "700", color: theme.onSurface, flexShrink: 1 }}>
+                          {conflict.drug1}
+                        </Text>
+                        <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>×</Text>
+                        <MaterialCommunityIcons name="pill" size={hs(16)} color={pairColor} />
+                        <Text style={{ fontSize: fontScale(14), fontWeight: "700", color: theme.onSurface, flexShrink: 1 }}>
+                          {conflict.drug2}
+                        </Text>
+                        {conflict.verified_by_ai ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4), paddingHorizontal: hs(8), paddingVertical: vs(3), borderRadius: hs(10), backgroundColor: "#e0f2fe" }}>
+                            <MaterialCommunityIcons name="robot-outline" size={hs(12)} color="#0284c7" />
+                            <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: "#0284c7" }}>{t("aiVerified")}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {conflict.reason ? (
+                        <Text style={{ fontSize: fontScale(12), lineHeight: fontScale(16), marginTop: vs(6), color: theme.onSurfaceVariant }}>
+                          {conflict.reason}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </ScrollView>
             </>
-          ) : null}
-
-          {isError ? (
-            <Text style={{ fontSize: fontScale(13), lineHeight: fontScale(18), marginBottom: vs(12), color: theme.onSurfaceVariant }}>
-              {t("interactionCheckUnavailableDesc")}
-            </Text>
-          ) : payload.message ? (
-            <Text style={{ fontSize: fontScale(13), marginBottom: vs(12), color: theme.onSurfaceVariant }}>
-              {payload.message}
-            </Text>
-          ) : null}
+          ) : (
+            <>
+              {affected.length > 0 ? (
+                <>
+                  <Text style={{ fontSize: fontScale(14), fontWeight: "700", marginBottom: vs(8), color: theme.onSurface }}>
+                    {t("affectedMeds")}
+                  </Text>
+                  <ScrollView style={{ maxHeight: vs(160), marginBottom: vs(12) }} showsVerticalScrollIndicator={false}>
+                    {affected.map((name, idx) => (
+                      <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: hs(8), paddingVertical: vs(4) }}>
+                        <MaterialCommunityIcons name="pill" size={hs(16)} color={theme.primary} />
+                        <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>{name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : null}
+              {payload.message ? (
+                <Text style={{ fontSize: fontScale(13), marginBottom: vs(12), color: theme.onSurfaceVariant }}>
+                  {payload.message}
+                </Text>
+              ) : null}
+            </>
+          )}
 
           <Text style={{ fontSize: fontScale(12), lineHeight: fontScale(18), marginBottom: vs(16), color: theme.onSurfaceVariant }}>
             {t("advisoryNote")}

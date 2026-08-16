@@ -2,6 +2,7 @@ import { Stack, useRouter } from "expo-router";
 import { TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppTheme } from "@/src/theme/ThemeContext";
+import AuthControls from "@/components/AuthControls";
 
 export default function DoctorAuthLayout() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function DoctorAuthLayout() {
               <MaterialCommunityIcons name="arrow-left" size={24} color={theme.onSurface} />
             </TouchableOpacity>
           ),
+          headerRight: () => <AuthControls />,
         }}
       />
       <Stack.Screen

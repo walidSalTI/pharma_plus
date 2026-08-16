@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, Text } from "react-native";
+import { Animated } from "react-native";
 
 export function HelloWave() {
   const rotation = useRef(new Animated.Value(0)).current;

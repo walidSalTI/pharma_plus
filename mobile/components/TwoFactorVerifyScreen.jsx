@@ -51,7 +51,7 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
         router.replace(role === "doctor" ? "/(auth-doctor)/DoctorLoginScreen" : "/(auth-rep)/RepLoginScreen");
       }
     })();
-  }, []);
+  }, [role, router]);
 
   const handleDigitChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -88,7 +88,6 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
       const res = await verifyFn(twoFactorToken, code);
 
       const authToken = res.data?.token;
-      const userData = res.data?.user || res.data?.doctor || res.data?.rep;
 
       if (authToken) {
         await setToken(authToken);

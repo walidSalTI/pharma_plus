@@ -2,9 +2,11 @@ import * as SecureStore from "expo-secure-store";
 
 const TOKEN_KEY = "auth_token";
 const ROLE_KEY = "user_role";
+const USER_NAME_KEY = "user_name";
 
 let memoryToken = null;
 let memoryRole = null;
+let memoryUserName = null;
 const memoryCache = {};
 
 export const safeGetItem = async (key) => {
@@ -65,6 +67,23 @@ export const getUserRole = async () => {
 export const clearUserRole = async () => {
   memoryRole = null;
   await safeDeleteItem(ROLE_KEY);
+};
+
+export const setUserName = async (name) => {
+  memoryUserName = name;
+  await safeSetItem(USER_NAME_KEY, name);
+};
+
+export const getUserName = async () => {
+  if (memoryUserName !== null) return memoryUserName;
+  const stored = await safeGetItem(USER_NAME_KEY);
+  if (stored !== null && stored !== undefined) memoryUserName = stored;
+  return stored;
+};
+
+export const clearUserName = async () => {
+  memoryUserName = null;
+  await safeDeleteItem(USER_NAME_KEY);
 };
 
 const PENDING_2FA_TOKEN_KEY = "pending_2fa_token";

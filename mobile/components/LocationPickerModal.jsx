@@ -65,7 +65,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm, initi
         getCurrentLocation();
       }
     }
-  }, [visible]);
+  }, [visible, initialLatitude, initialLongitude]);
 
   const getCurrentLocation = async () => {
     setLoadingLocation(true);

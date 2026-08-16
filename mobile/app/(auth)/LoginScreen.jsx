@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import tw from "twrnc";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   LoginEmailInput,
   LoginPasswordInput,
@@ -55,18 +56,20 @@ export default function LoginScreen() {
         contentContainerStyle={[tw`flex-grow justify-center py-12`, { paddingHorizontal: isTablet ? hs(120) : hs(24) }]}
       >
         <View style={{ alignItems: "center", marginBottom: vs(36) }}>
-          <View
+          <LinearGradient
+            colors={[theme.primary, "#38bdf8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
               width: hs(48),
               height: hs(48),
               borderRadius: hs(12),
               justifyContent: "center",
               alignItems: "center",
-              backgroundColor: theme.primary,
             }}
           >
             <MaterialCommunityIcons name="pulse" size={hs(28)} color="white" />
-          </View>
+          </LinearGradient>
           <Text
             style={{
               fontSize: fontScale(24),
@@ -90,6 +93,8 @@ export default function LoginScreen() {
               textAlign: "center",
               color: theme.onSurface,
             }}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
           >
             {t("welcomeBack")}
           </Text>
@@ -116,9 +121,15 @@ export default function LoginScreen() {
             borderRadius: hs(28),
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: theme.primary,
+            overflow: "hidden",
           }}
         >
+          <LinearGradient
+            colors={[theme.primary, "#38bdf8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+          />
           {isLoading ? (
             <ActivityIndicator color="white" />
           ) : (

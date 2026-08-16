@@ -8,43 +8,27 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import tw from "twrnc";
 import BottomNavBar from "@/components/BottomNavBar";
 import ConditionCard from "@/components/ConditionCard";
+import SettingsButton from "@/components/SettingsButton";
+import UserAvatar from "@/components/UserAvatar";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { webShadow } from "@/constants/shadow";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useResponsive } from "@/constants/responsive";
 import { useUserName } from "@/hooks/useUserName";
-import { useRouter } from "expo-router";
+import { useCustomAlert } from "@/src/context/CustomAlertContext";
+import { getDiseaseIcon } from "@/constants/conditionIcons";
 import {
   getChronicDiseases,
   getMyDiseases,
   addDisease,
   deleteDisease,
 } from "@/services/diseaseService";
-
-const CATEGORY_ICONS = {
-  Cardiovascular: "heart-pulse",
-  Respiratory: "lungs",
-  Metabolic: "scale-bathroom",
-  Neurological: "brain",
-  Oncology: "ribbon",
-  Immunology: "shield-cross",
-  Endocrine: "hormone",
-  Gastrointestinal: "stomach",
-  Musculoskeletal: "bone",
-  Psychiatric: "head-heart",
-  Dermatologic: "skin",
-  Renal: "kidney",
-  Hepatic: "liver",
-  Hematologic: "blood-bag",
-  Infectious: "bacteria",
-  Genetic: "dna",
-};
 
 const SEVERITIES = ["low", "medium", "high"];
 
@@ -54,6 +38,7 @@ export default function MedicalFileScreen() {
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
   const { userName } = useUserName();
+  const { confirm } = useCustomAlert();
 
   const [loading, setLoading] = useState(true);
   const [catalog, setCatalog] = useState([]);
@@ -88,17 +73,26 @@ export default function MedicalFileScreen() {
   const isSaved = (diseaseId) => myDiseases.some((d) => d.chronic_disease_id === diseaseId);
   const getSavedRecordId = (diseaseId) => myDiseases.find((d) => d.chronic_disease_id === diseaseId)?.id;
 
-  const handleCardPress = async (disease) => {
+  const handleCardPress = (disease) => {
     const cid = disease.id;
     if (isSaved(cid)) {
       const recordId = getSavedRecordId(cid);
       if (!recordId) return;
-      try {
-        await deleteDisease(recordId);
-        setMyDiseases((prev) => prev.filter((d) => d.id !== recordId));
-      } catch {
-        fetchData();
-      }
+      confirm({
+        title: t("deleteCondition"),
+        message: t("deleteConditionConfirm", { name: disease.name_en }),
+        confirmText: t("delete"),
+        cancelText: t("cancel"),
+        variant: "delete",
+        onConfirm: async () => {
+          try {
+            await deleteDisease(recordId);
+            setMyDiseases((prev) => prev.filter((d) => d.id !== recordId));
+          } catch {
+            fetchData();
+          }
+        },
+      });
     } else {
       setSelectedDisease(disease);
       setAddStep("details");
@@ -178,7 +172,7 @@ export default function MedicalFileScreen() {
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
                     <View style={[{ width: hs(40), height: hs(40), borderRadius: hs(20), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.primaryContainer }]}>
-                      <MaterialCommunityIcons name={CATEGORY_ICONS[disease.category] || "pill"} size={hs(22)} color={theme.primary} />
+                      <MaterialCommunityIcons name={getDiseaseIcon(disease)} size={hs(22)} color={theme.primary} />
                     </View>
                     <View style={{ marginLeft: hs(12), flex: 1 }}>
                       <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>
@@ -286,22 +280,10 @@ export default function MedicalFileScreen() {
             ]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
-              <View style={{ width: hs(36), height: hs(36), borderRadius: hs(18), backgroundColor: theme.surfaceContainerHighest, overflow: "hidden" }}>
-                <Image
-                  source={{
-                    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuD3CEvmRFKO2m4j50c0kqekJBawo4DjjelTxZimH6WUOe56gLIVOm3E8Q9X4FE2A45L0NpG96dX13R_U9hbNfC8cEZAat6HYZsYB1K9i5FCM0F5A7VrfP46CV_AMyZJGFO6yTgRpTjDETcbDUozUHUzQ1YVbLLANMIMO2RWWzw8lWS5UvLWjxD-Uy6xQ6X0HdPoT_0Wseieax9DZkDfNn-nEy7jDTjCxQNy-ER76AmqbX0fFK5bxO-VHausQPmwoqH97qj8-Klm1M",
-                  }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              </View>
+              <UserAvatar size={hs(36)} onPress={() => router.push("/settings")} />
               <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName || "Pharma"}</Text>
             </View>
-            <TouchableOpacity style={{ padding: hs(8), borderRadius: hs(16) }}>
-              <MaterialCommunityIcons name="bell-outline" size={hs(24)} color={theme.onSurfaceVariant} />
-            </TouchableOpacity>
+            <SettingsButton />
           </View>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: hs(24), paddingBottom: vs(24), paddingTop: vs(32) }} showsVerticalScrollIndicator={false}>
@@ -339,9 +321,9 @@ export default function MedicalFileScreen() {
                         key={disease.id}
                         name={disease.name_en}
                         sub={disease.name_ar}
-                        icon={CATEGORY_ICONS[disease.category] || "pill"}
+                        icon={getDiseaseIcon(disease)}
                         selected={true}
-                        showIcon={false}
+                        showIcon={true}
                         onPress={() => handleCardPress(disease)}
                       />
                     ))}

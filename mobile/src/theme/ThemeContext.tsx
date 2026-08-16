@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { useColorScheme } from "react-native";
 import { lightTheme, darkTheme } from "@/constants/theme";
+import { lightThemeOverride } from "@/constants/themeOverrides";
 
 type Theme = typeof lightTheme;
 
@@ -31,7 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setIsDark(dark);
   }, []);
 
-  const theme = isDark ? darkTheme : lightTheme;
+  const theme = isDark ? darkTheme : { ...lightTheme, ...lightThemeOverride };
 
   return (
     <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setDarkMode }}>

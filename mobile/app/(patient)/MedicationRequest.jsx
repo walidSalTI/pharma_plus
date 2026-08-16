@@ -14,8 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import tw from "twrnc";
 import BottomNavBar from "@/components/BottomNavBar";
+import SettingsButton from "@/components/SettingsButton";
 import { searchMedications } from "@/services/medService";
 import { searchPharmaciesByMedications } from "@/services/searchService";
+import { checkInteractions, deriveInteractionPayload } from "@/services/interactionService";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useToast } from "@/src/context/ToastContext";
@@ -28,8 +30,9 @@ export default function MedicationRequest() {
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale, isTablet, isLandscape } = useResponsive();
   const { userName } = useUserName();
-  const { error: toastError, warning: toastWarning, info: toastInfo } = useToast();
+  const { error: toastError } = useToast();
   const searchInputRef = useRef(null);
+  const scrollRef = useRef(null);
 
   const [search, setSearch] = useState("");
   const [medications, setMedications] = useState([]);
@@ -40,6 +43,8 @@ export default function MedicationRequest() {
   const [pharmacyResults, setPharmacyResults] = useState([]);
   const [searchingPharmacy, setSearchingPharmacy] = useState(false);
   const [hasSearchedPharmacy, setHasSearchedPharmacy] = useState(false);
+  const [basketInteraction, setBasketInteraction] = useState(null);
+  const [pendingScrollToBottom, setPendingScrollToBottom] = useState(false);
   const handleSearch = async () => {
     if (!search.trim()) {
       setMedications([]);
@@ -87,25 +92,43 @@ export default function MedicationRequest() {
     setSearchingPharmacy(true);
     try {
       const queries = basket.map((m) => m.trade_name);
-      const results = await searchPharmaciesByMedications(
-        queries,
-        String(coords.latitude),
-        String(coords.longitude),
-      );
+      const [results, interaction] = await Promise.all([
+        searchPharmaciesByMedications(
+          queries,
+          String(coords.latitude),
+          String(coords.longitude),
+        ),
+        basket.length >= 2 ? checkInteractions(queries) : Promise.resolve(null),
+      ]);
       setPharmacyResults(Array.isArray(results) ? results : []);
+      setBasketInteraction(
+        interaction?.isError
+          ? deriveInteractionPayload(queries, results)
+          : interaction,
+      );
     } catch {
       toastError(t("failedConnection"));
     } finally {
       setSearchingPharmacy(false);
       setHasSearchedPharmacy(true);
+      setPendingScrollToBottom(true);
     }
   };
 
-  const addToBasket = (item) => {
-    if (!basket.find((m) => m.id === item.id)) {
-      setBasket([...basket, item]);
-    } else {
-      toastInfo(t("alreadyAdded"));
+  const toggleBasket = (item) => {
+    setBasket((prev) =>
+      prev.find((m) => m.id === item.id)
+        ? prev.filter((m) => m.id !== item.id)
+        : [...prev, item],
+    );
+  };
+
+  const clearBasket = () => setBasket([]);
+
+  const handleContentSizeChange = () => {
+    if (pendingScrollToBottom) {
+      scrollRef.current?.scrollToEnd({ animated: true });
+      setPendingScrollToBottom(false);
     }
   };
 
@@ -124,6 +147,7 @@ export default function MedicationRequest() {
           is_open: pharmacy.is_open,
         }),
         medications: JSON.stringify(pharmacy.medications || []),
+        interactions: basketInteraction ? JSON.stringify(basketInteraction) : "",
       },
     });
   };
@@ -148,12 +172,12 @@ export default function MedicationRequest() {
               </Text>
             </View>
           </View>
-          <TouchableOpacity style={{ width: hs(38), height: hs(38), borderRadius: hs(19), backgroundColor: theme.surfaceContainerLow, alignItems: "center", justifyContent: "center" }}>
-            <MaterialCommunityIcons name="bell-outline" size={hs(20)} color={theme.onSurfaceVariant} />
-          </TouchableOpacity>
+          <SettingsButton />
         </View>
 
         <ScrollView
+          ref={scrollRef}
+          onContentSizeChange={handleContentSizeChange}
           contentContainerStyle={{ paddingHorizontal: hs(24), paddingTop: vs(24), paddingBottom: vs(160) }}
           showsVerticalScrollIndicator={false}
         >
@@ -223,7 +247,7 @@ export default function MedicationRequest() {
                   return (
                     <TouchableOpacity
                       key={item.id}
-                      onPress={() => addToBasket(item)}
+                      onPress={() => toggleBasket(item)}
                       activeOpacity={0.7}
                       style={{ backgroundColor: theme.surface, borderRadius: hs(14), padding: hs(14), flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: inBasket ? theme.primary : theme.surfaceContainerLow, overflow: "hidden" }}
                     >
@@ -234,15 +258,12 @@ export default function MedicationRequest() {
                         <Text style={[{ fontSize: fontScale(15), fontWeight: "700" }, { color: theme.onSurface }]}>
                           {item.trade_name}
                         </Text>
-                        <Text style={[{ fontSize: fontScale(12), marginTop: vs(2) }, { color: theme.onSurfaceVariant }]}>
-                          {item.dosage} \u2022 {item.type}
-                        </Text>
                       </View>
-                      <View style={{ width: hs(32), height: hs(32), borderRadius: hs(16), backgroundColor: inBasket ? theme.primaryContainer : theme.primary, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ width: hs(32), height: hs(32), borderRadius: hs(16), backgroundColor: theme.primary, alignItems: "center", justifyContent: "center" }}>
                         <MaterialCommunityIcons
-                          name={inBasket ? "check" : "plus"}
+                          name={inBasket ? "minus" : "plus"}
                           size={hs(18)}
-                          color={inBasket ? theme.primary : "white"}
+                          color="white"
                         />
                       </View>
                     </TouchableOpacity>
@@ -326,7 +347,14 @@ export default function MedicationRequest() {
                           {ph.distance_km?.toFixed(1) || "?"} km
                         </Text>
                       </View>
-                     
+                      {ph.suitability_score != null && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4) }}>
+                          <MaterialCommunityIcons name="star-circle-outline" size={hs(14)} color={theme.onSurfaceVariant} />
+                          <Text style={[{ fontSize: fontScale(12) }, { color: theme.onSurface }]}>
+                            {t("suitability")} {ph.suitability_score}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: hs(6) }}>
                       {(ph.medications || []).map((med) => (
@@ -339,6 +367,14 @@ export default function MedicationRequest() {
                           </Text>
                         </View>
                       ))}
+                      {(ph.medications || []).filter((m) => Array.isArray(m.conflicts) && m.conflicts.length > 0).length > 0 && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(5), backgroundColor: "#fee2e2", alignSelf: "flex-start", paddingHorizontal: hs(10), paddingVertical: vs(3), borderRadius: hs(12), marginTop: vs(8) }}>
+                          <MaterialCommunityIcons name="alert-circle" size={hs(14)} color="#b91c1c" />
+                          <Text style={{ fontSize: fontScale(11), fontWeight: "700", color: "#b91c1c" }}>
+                            {(ph.medications || []).reduce((n, m) => n + (Array.isArray(m.conflicts) ? m.conflicts.length : 0), 0)} {t("conflictsDetected")}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -350,28 +386,44 @@ export default function MedicationRequest() {
 
         {basket.length > 0 && (
           <View style={{ backgroundColor: theme.surface, borderTopWidth: 1, borderTopColor: theme.surfaceContainerLow, paddingHorizontal: hs(20), paddingVertical: vs(10) }}>
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: vs(10) }}>
-              <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: theme.onSurface }]}>
-                {t("myBasket")}
-              </Text>
-              <View style={{ backgroundColor: theme.primary, borderRadius: hs(10), paddingHorizontal: hs(8), paddingVertical: vs(2), marginLeft: hs(8) }}>
-                <Text style={{ fontSize: fontScale(11), fontWeight: "700", color: "white" }}>
-                  {basket.length}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: vs(10) }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: theme.onSurface }]}>
+                  {t("myBasket")}
                 </Text>
+                <View style={{ backgroundColor: theme.primary, borderRadius: hs(10), paddingHorizontal: hs(8), paddingVertical: vs(2), marginLeft: hs(8) }}>
+                  <Text style={{ fontSize: fontScale(11), fontWeight: "700", color: "white" }}>
+                    {basket.length}
+                  </Text>
+                </View>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginLeft: hs(10) }}>
-                {basket.map((item) => (
-                  <View key={item.id} style={{ backgroundColor: theme.primaryContainer, marginRight: hs(6), paddingHorizontal: hs(10), paddingVertical: vs(4), borderRadius: hs(14), flexDirection: "row", alignItems: "center" }}>
-                    <Text style={[{ fontSize: fontScale(12), fontWeight: "600" }, { color: theme.primary, marginRight: hs(4) }]}>
-                      {item.trade_name}
-                    </Text>
-                    <TouchableOpacity onPress={() => setBasket(basket.filter((b) => b.id !== item.id))}>
-                      <MaterialCommunityIcons name="close-circle" size={hs(14)} color={theme.primary} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
+              <TouchableOpacity
+                onPress={clearBasket}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ flexDirection: "row", alignItems: "center", gap: hs(4), paddingVertical: vs(4) }}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={hs(16)} color={theme.onSurfaceVariant} />
+                <Text style={[{ fontSize: fontScale(12), fontWeight: "600" }, { color: theme.onSurfaceVariant }]}>
+                  {t("clearAll")}
+                </Text>
+              </TouchableOpacity>
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: vs(10) }}>
+              {basket.map((item) => (
+                <View key={item.id} style={{ backgroundColor: theme.primaryContainer, marginRight: hs(8), paddingHorizontal: hs(12), paddingVertical: vs(6), borderRadius: hs(16), flexDirection: "row", alignItems: "center" }}>
+                  <Text style={[{ fontSize: fontScale(12), fontWeight: "600" }, { color: theme.primary, marginRight: hs(6) }]}>
+                    {item.trade_name}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => toggleBasket(item)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={{ padding: hs(2) }}
+                  >
+                    <MaterialCommunityIcons name="close-circle" size={hs(18)} color={theme.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
             <TouchableOpacity
               style={{ height: vs(48), backgroundColor: theme.primary, borderRadius: hs(14), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8) }}
               onPress={handleFindPharmacies}
@@ -391,7 +443,7 @@ export default function MedicationRequest() {
           </View>
         )}
       </SafeAreaView>
-      <BottomNavBar activeTab="Health" />
+      <BottomNavBar activeTab="Order" />
     </View>
   );
 }

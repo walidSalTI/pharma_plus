@@ -1,6 +1,6 @@
 import { apiFetch } from "./apiClient";
 
-const BASE = "/diseases";
+const BASE = "/patient/diseases";
 
 export const getChronicDiseases = async () => {
   try {
@@ -22,8 +22,20 @@ export const getMyDiseases = async () => {
 
 export const addDisease = async (data) => {
   try {
-    const response = await apiFetch(BASE, {
+    const response = await apiFetch("/patient/diseases", {
       method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response.data || response;
+  } catch {
+    return null;
+  }
+};
+
+export const updateDisease = async (recordId, data) => {
+  try {
+    const response = await apiFetch(`${BASE}/${recordId}`, {
+      method: "PUT",
       body: JSON.stringify(data),
     });
     return response.data || response;
