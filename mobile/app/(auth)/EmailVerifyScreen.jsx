@@ -98,7 +98,7 @@ export default function EmailVerifyScreen({ role = "patient" }) {
           <View
             style={{
               backgroundColor: theme.errorContainer,
-              borderRadius: 12,
+              borderRadius: hs(12),
               padding: vs(12),
               marginBottom: vs(16),
             }}
@@ -128,7 +128,7 @@ export default function EmailVerifyScreen({ role = "patient" }) {
                 style={{
                   width: hs(48),
                   height: vs(56),
-                  borderRadius: 12,
+                  borderRadius: hs(12),
                   borderWidth: 1,
                   textAlign: "center",
                   fontSize: fontScale(22),
@@ -148,7 +148,7 @@ export default function EmailVerifyScreen({ role = "patient" }) {
           </View>
 
           {loading && (
-            <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: hs(8) }}>
               <ActivityIndicator size="small" color={theme.primary} />
               <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>
                 {t("emailVerifyVerifying")}

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
@@ -12,6 +13,15 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
 import AuthControls from "@/components/AuthControls";
+import { useAuth } from "@/src/context/AuthContext";
+import { clearToken, clearUserRole } from "@/services/tokenService";
+import { getConsentAccepted } from "@/services/legalConsentStorage";
+
+const ROLE_HOME: Record<string, string> = {
+  patient: "/(patient)/MedicationsScreen",
+  doctor: "/(doctor)/DoctorDashboard",
+  rep: "/(rep)/RepDashboard",
+};
 
 export default function Index() {
   const router = useRouter();
@@ -19,6 +29,20 @@ export default function Index() {
   const { theme } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
   const insets = useSafeAreaInsets();
+  const { status, role, signOut } = useAuth();
+
+  useEffect(() => {
+    if (status === "authed" && role) {
+      getConsentAccepted().then((accepted) => {
+        if (!accepted) {
+          router.replace("/terms");
+        } else {
+          const home = ROLE_HOME[role];
+          if (home) router.replace(home);
+        }
+      });
+    }
+  }, [status, role]);
 
   const roles = [
     {
@@ -101,7 +125,14 @@ export default function Index() {
             <TouchableOpacity
               key={role.label}
               activeOpacity={0.8}
-              onPress={() => router.push(role.route)}
+              onPress={async () => {
+                if (status === "authed") {
+                  await clearToken();
+                  await clearUserRole();
+                  signOut();
+                }
+                router.push(role.route);
+              }}
               style={{
                 flexDirection: "row",
                 alignItems: "center",

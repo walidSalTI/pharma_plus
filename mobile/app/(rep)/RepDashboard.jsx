@@ -18,6 +18,7 @@ import { useRepDashboard } from "@/hooks/useRepDashboard";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
+import { useExitPrompt } from "@/hooks/useExitPrompt";
 
 const getGreeting = (t) => {
   const hour = new Date().getHours();
@@ -31,6 +32,7 @@ export default function RepDashboard() {
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
   const router = useRouter();
+  const { exitModal } = useExitPrompt();
   const { rep, todaySchedules, weeklyOverview, loading, refresh, error } = useRepDashboard();
 
   return (
@@ -82,13 +84,13 @@ export default function RepDashboard() {
               {getGreeting(t)}
             </Text>
             {rep?.name && (
-              <Text style={{ fontSize: fontScale(16), marginTop: vs(4), color: theme.onSurfaceVariant }}>
+              <Text numberOfLines={1} style={{ fontSize: fontScale(16), marginTop: vs(4), color: theme.onSurfaceVariant }}>
                 {rep.name}
               </Text>
             )}
             {rep?.company && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: hs(8), marginTop: vs(8) }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: hs(12), paddingVertical: vs(4), borderRadius: hs(12), backgroundColor: theme.primaryContainer + "60" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4), paddingHorizontal: hs(12), paddingVertical: vs(4), borderRadius: hs(12), backgroundColor: theme.primaryContainer + "60" }}>
                   <MaterialCommunityIcons name="domain" size={hs(14)} color={theme.primary} />
                   <Text style={{ fontSize: fontScale(13), fontWeight: "600", color: theme.primary }}>
                     {rep.company}
@@ -165,6 +167,7 @@ export default function RepDashboard() {
       <View style={tw`absolute bottom-0 left-0 right-0 z-50`}>
         <RepBottomNavBar activeTab="Dashboard" />
       </View>
+      {exitModal}
     </View>
   );
 }

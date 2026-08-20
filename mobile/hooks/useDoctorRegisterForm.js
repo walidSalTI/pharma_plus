@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useToast } from "@/src/context/ToastContext";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { registerDoctor } from "@/services/doctorAuthService";
 import { setPendingVerifyEmail } from "@/services/tokenService";
 
@@ -28,6 +29,7 @@ const WORKPLACE_TYPES = ["Clinic", "Hospital"];
 export const useDoctorRegisterForm = () => {
   const router = useRouter();
   const { error: toastError } = useToast();
+  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -101,9 +103,7 @@ export const useDoctorRegisterForm = () => {
   };
 
   const setSyndicateImageManual = (uri) => {
-    if (uri) {
-      setSyndicateImage({ uri });
-    }
+    setSyndicateImage(uri ? { uri } : null);
   };
 
   const addWorkplace = () => {
@@ -151,7 +151,7 @@ export const useDoctorRegisterForm = () => {
     if (form.password !== form.password_confirmation)
       newErrors.password_confirmation = "Passwords do not match";
     if (!form.phone_number.trim()) newErrors.phone_number = "Phone is required";
-    if (!form.age || isNaN(form.age)) newErrors.age = "Enter a valid age";
+    if (!form.age || isNaN(form.age) || Number(form.age) < 19) newErrors.age = t("invalidAge");
     if (!form.gender) newErrors.gender = "Gender is required";
     if (!form.specialization) newErrors.specialization = "Specialization is required";
     setErrors(newErrors);

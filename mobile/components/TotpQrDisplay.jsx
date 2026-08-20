@@ -77,12 +77,12 @@ export default function TotpQrDisplay({ payload, timeRemaining, isActive, error 
         <Text style={{ fontSize: fontScale(14), fontWeight: "600", color: theme.onSurfaceVariant, marginBottom: vs(8) }}>
           {t("codeExpiresIn")} {timeRemaining}s
         </Text>
-        <View style={{ width: "100%", height: 4, borderRadius: 2, backgroundColor: theme.surfaceContainerHigh, overflow: "hidden" }}>
+        <View style={{ width: "100%", height: vs(4), borderRadius: hs(2), backgroundColor: theme.surfaceContainerHigh, overflow: "hidden" }}>
           <View
             style={{
               width: `${progress * 100}%`,
               height: "100%",
-              borderRadius: 2,
+              borderRadius: hs(2),
               backgroundColor: timeRemaining <= 5 ? theme.error : theme.primary,
             }}
           />

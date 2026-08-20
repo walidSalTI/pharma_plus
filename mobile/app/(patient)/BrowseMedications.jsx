@@ -291,7 +291,7 @@ export default function BrowseMedications() {
             </View>
           }
           ListHeaderComponent={
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: vs(8), paddingHorizontal: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: vs(8), paddingHorizontal: hs(4) }}>
               <Text style={[{ fontSize: fontScale(12), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }, { color: theme.onSurfaceVariant }]}>
                 {medications.length} {medications.length === 1 ? t("medication") : t("medications")}
               </Text>
@@ -324,7 +324,7 @@ export default function BrowseMedications() {
               onPress={handleAddSelected}
               disabled={checking}
               style={[
-                { paddingVertical: vs(16), borderRadius: hs(16), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), backgroundColor: theme.primary },
+                { height: vs(56), borderRadius: hs(16), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(8), backgroundColor: theme.primary },
                 webShadow({ elevation: 6, color: theme.primary, radius: 12, offsetY: 6 }),
                 { opacity: checking ? 0.7 : 1 },
               ]}
@@ -332,14 +332,14 @@ export default function BrowseMedications() {
               {checking ? (
                 <>
                   <ActivityIndicator color="white" />
-                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                  <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
                     {t("checkingSafety")}
                   </Text>
                 </>
               ) : (
                 <>
                   <MaterialCommunityIcons name="plus" size={hs(22)} color="white" />
-                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                  <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
                     {t("addNew")} {selectedMeds.length} {selectedMeds.length === 1 ? t("medication") : t("medications")}
                   </Text>
                 </>

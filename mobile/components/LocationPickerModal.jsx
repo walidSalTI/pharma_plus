@@ -7,65 +7,98 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 
-let mapsModulePromise = null;
-const loadMapsModule = () => {
-  if (!mapsModulePromise) {
-    mapsModulePromise = import("react-native-maps");
-  }
-  return mapsModulePromise;
-};
+const DEFAULT_LAT = 33.5138;
+const DEFAULT_LNG = 36.2765;
 
-const DEFAULT_REGION = {
-  latitude: 33.5138,
-  longitude: 36.2765,
-  latitudeDelta: 0.01,
-  longitudeDelta: 0.01,
-};
+const MAP_HTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+html,body{margin:0;padding:0;height:100%;width:100%}
+#map{height:100%;width:100%}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+var map=L.map('map',{zoomControl:true}).setView([${DEFAULT_LAT},${DEFAULT_LNG}],15);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+maxZoom:19,
+attribution:'&copy; OpenStreetMap contributors'
+}).addTo(map);
+var marker=null;
+function placeMarker(lat,lng){
+if(marker){marker.setLatLng([lat,lng]);}
+else{
+marker=L.marker([lat,lng],{draggable:true}).addTo(map);
+marker.on('dragend',function(e){
+var p=e.target.getLatLng();
+window.ReactNativeWebView.postMessage(JSON.stringify({lat:p.lat,lng:p.lng}));
+});
+}
+map.setView([lat,lng],map.getZoom());
+}
+map.on('click',function(e){
+placeMarker(e.latlng.lat,e.latlng.lng);
+window.ReactNativeWebView.postMessage(JSON.stringify({lat:e.latlng.lat,lng:e.latlng.lng}));
+});
+window.ReactNativeWebView.postMessage(JSON.stringify({type:'ready'}));
+</script>
+</body>
+</html>`;
 
 export default function LocationPickerModal({ visible, onClose, onConfirm, initialLatitude, initialLongitude }) {
   const { theme } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
   const { t } = useLanguage();
-  const mapRef = useRef(null);
+  const webViewRef = useRef(null);
 
-  const [region, setRegion] = useState(DEFAULT_REGION);
   const [marker, setMarker] = useState({
-    latitude: initialLatitude || DEFAULT_REGION.latitude,
-    longitude: initialLongitude || DEFAULT_REGION.longitude,
+    latitude: initialLatitude || DEFAULT_LAT,
+    longitude: initialLongitude || DEFAULT_LNG,
   });
   const [loadingLocation, setLoadingLocation] = useState(false);
-  const [maps, setMaps] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
-    if (visible && !maps) {
-      loadMapsModule()
-        .then((mod) => setMaps(mod))
-        .catch((e) => console.warn("[LocationPickerModal] maps load error:", e));
-    }
-  }, [visible, maps]);
-
-  useEffect(() => {
-    if (visible) {
+    if (visible && mapReady && webViewRef.current) {
       if (initialLatitude && initialLongitude) {
-        const coords = {
-          latitude: Number(initialLatitude),
-          longitude: Number(initialLongitude),
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-        setRegion(coords);
-        setMarker(coords);
+        const lat = Number(initialLatitude);
+        const lng = Number(initialLongitude);
+        setMarker({ latitude: lat, longitude: lng });
+        sendToWebView({ type: "setMarker", lat, lng });
       } else {
         getCurrentLocation();
       }
     }
-  }, [visible, initialLatitude, initialLongitude]);
+  }, [visible, mapReady, initialLatitude, initialLongitude]);
+
+  const sendToWebView = (data) => {
+    webViewRef.current?.postMessage(JSON.stringify(data));
+  };
+
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "ready") {
+        setMapReady(true);
+        return;
+      }
+      if (data.lat != null && data.lng != null) {
+        setMarker({ latitude: data.lat, longitude: data.lng });
+      }
+    } catch {}
+  };
 
   const getCurrentLocation = async () => {
     setLoadingLocation(true);
@@ -73,28 +106,15 @@ export default function LocationPickerModal({ visible, onClose, onConfirm, initi
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
         const loc = await Location.getCurrentPositionAsync({});
-        const coords = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-        setRegion(coords);
-        setMarker(coords);
-        mapRef.current?.animateToRegion(coords, 300);
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
+        setMarker({ latitude: lat, longitude: lng });
+        sendToWebView({ type: "setMarker", lat, lng });
       }
     } catch {
     } finally {
       setLoadingLocation(false);
     }
-  };
-
-  const handleMapPress = (e) => {
-    setMarker(e.nativeEvent.coordinate);
-  };
-
-  const handleMarkerDragEnd = (e) => {
-    setMarker(e.nativeEvent.coordinate);
   };
 
   const handleConfirm = () => {
@@ -117,26 +137,17 @@ export default function LocationPickerModal({ visible, onClose, onConfirm, initi
           </View>
 
           <View style={{ flex: 1 }}>
-            {maps ? (
-              <maps.default
-                ref={mapRef}
-                style={{ flex: 1 }}
-                region={region}
-                onRegionChangeComplete={setRegion}
-                onPress={handleMapPress}
-              >
-                <maps.Marker
-                  coordinate={marker}
-                  draggable
-                  onDragEnd={handleMarkerDragEnd}
-                  pinColor={theme.primary}
-                />
-              </maps.default>
-            ) : (
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <ActivityIndicator size="large" color={theme.primary} />
-              </View>
-            )}
+            <WebView
+              ref={webViewRef}
+              source={{ html: MAP_HTML }}
+              style={{ flex: 1 }}
+              onMessage={handleWebViewMessage}
+              originWhitelist={["*"]}
+              javaScriptEnabled
+              scrollEnabled={false}
+              bounces={false}
+              overScrollMode="never"
+            />
 
             {loadingLocation && (
               <View style={{ position: "absolute", top: vs(16), alignSelf: "center", flexDirection: "row", alignItems: "center", gap: hs(8), backgroundColor: theme.surface, paddingHorizontal: hs(16), paddingVertical: vs(10), borderRadius: hs(20), elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 }}>
@@ -148,10 +159,10 @@ export default function LocationPickerModal({ visible, onClose, onConfirm, initi
             <TouchableOpacity
               onPress={getCurrentLocation}
               disabled={loadingLocation}
-              style={{ position: "absolute", bottom: vs(100), alignSelf: "center", flexDirection: "row", alignItems: "center", gap: hs(8), backgroundColor: theme.primary, paddingHorizontal: hs(20), paddingVertical: vs(12), borderRadius: hs(24), elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 }}
+              style={{ position: "absolute", bottom: vs(100), alignSelf: "center", flexDirection: "row", alignItems: "center", gap: hs(8), backgroundColor: theme.primary, paddingHorizontal: hs(20), height: vs(48), borderRadius: hs(24), elevation: 4, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 }}
             >
               <MaterialCommunityIcons name="crosshairs-gps" size={hs(20)} color="white" />
-              <Text style={{ fontSize: fontScale(14), fontWeight: "700", color: "white" }}>{t("useMyLocation")}</Text>
+              <Text numberOfLines={1} style={{ fontSize: fontScale(14), fontWeight: "700", color: "white" }}>{t("useMyLocation")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -162,9 +173,9 @@ export default function LocationPickerModal({ visible, onClose, onConfirm, initi
             </View>
             <TouchableOpacity
               onPress={handleConfirm}
-              style={{ paddingVertical: vs(14), borderRadius: hs(12), alignItems: "center", backgroundColor: theme.primary }}
+              style={{ height: vs(50), borderRadius: hs(12), alignItems: "center", justifyContent: "center", backgroundColor: theme.primary }}
             >
-              <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>{t("confirmLocation")}</Text>
+              <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>{t("confirmLocation")}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>

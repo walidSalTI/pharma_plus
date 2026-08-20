@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
@@ -24,7 +25,7 @@ const FILTERS = ["all", "upcoming", "completed", "cancelled"];
 
 function FilterBar({ activeFilter, setActiveFilter, theme, hs, vs, fontScale, t }) {
   return (
-    <View style={{ flexDirection: "row", paddingHorizontal: hs(24), gap: hs(8), paddingVertical: vs(12) }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: hs(8), paddingVertical: vs(12) }}>
       {FILTERS.map((f) => (
         <TouchableOpacity
           key={f}
@@ -41,7 +42,7 @@ function FilterBar({ activeFilter, setActiveFilter, theme, hs, vs, fontScale, t 
           </Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -131,6 +132,7 @@ export default function RepScheduleList() {
           data={filteredSchedules}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: hs(24), paddingBottom: vs(192) }}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.primary} />}
           ListHeaderComponent={<FilterBar activeFilter={activeFilter} setActiveFilter={setActiveFilter} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />}

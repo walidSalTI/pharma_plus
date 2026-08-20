@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -13,9 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
-import { checkInVisit } from "@/services/repService";
+import { checkInVisit, updateVisitNotes } from "@/services/repService";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
+import { useToast } from "@/src/context/ToastContext";
 import { useResponsive } from "@/constants/responsive";
 
 export default function RepQRScanner() {
@@ -28,8 +30,12 @@ export default function RepQRScanner() {
   const [permission, requestPermission] = useCameraPermissions();
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState(null);
+  const [notes, setNotes] = useState("");
+  const [visitId, setVisitId] = useState(null);
+  const [notesSaved, setNotesSaved] = useState(false);
   const animatedValue = useRef(new Animated.Value(0)).current;
   const ringValue = useRef(new Animated.Value(0)).current;
+  const { success: toastSuccess } = useToast();
 
   useEffect(() => {
     if (!permission) return;
@@ -47,17 +53,25 @@ export default function RepQRScanner() {
     ]).start();
   };
 
-  const handleScan = async ({ data }) => {
+  const lastScanData = useRef(null);
+
+  const handleRetry = () => {
+    setResult(null);
+    setProcessing(false);
+  };
+
+  const handleScan = async ({ data: scanPayload }) => {
     if (processing || result) return;
-    if (!data) return;
+    if (!scanPayload) return;
 
     setProcessing(true);
+    lastScanData.current = scanPayload;
     try {
       let parsed;
       try {
-        parsed = JSON.parse(data);
+        parsed = JSON.parse(scanPayload);
       } catch {
-        setResult({ success: false, message: t("invalidQR") });
+        setResult({ success: false, message: t("invalidQR"), retriable: false });
         animateResult(false);
         return;
       }
@@ -66,7 +80,7 @@ export default function RepQRScanner() {
 
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setResult({ success: false, message: t("gpsPermissionDenied") });
+        setResult({ success: false, message: t("gpsPermissionDenied"), retriable: true });
         animateResult(false);
         return;
       }
@@ -74,7 +88,7 @@ export default function RepQRScanner() {
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
 
-      await checkInVisit({
+      const { data } = await checkInVisit({
         doctor_id,
         code: totpCode,
         latitude,
@@ -82,21 +96,39 @@ export default function RepQRScanner() {
         schedule_id: scheduleId,
       });
 
-      setResult({ success: true, message: t("visitVerified") });
+      setVisitId(data.id);
+      setResult({ success: true, message: t("visitVerified"), retriable: false });
       animateResult(true);
     } catch (error) {
-      const msg =
-        error.message?.includes("geofence")
-          ? t("outsideGeofence")
-          : error.message?.includes("expired") || error.message?.includes("invalid")
-            ? t("invalidQR")
-            : error.message?.includes("schedule")
-              ? t("noScheduleFound")
-              : error.message || t("visitFailed");
-      setResult({ success: false, message: msg });
+      const serverMsg = error.data?.message || error.message || "";
+      const isGeofence = serverMsg.includes("geofence");
+      const isQR = serverMsg.includes("expired") || serverMsg.includes("invalid");
+      const isSchedule = serverMsg.includes("schedule");
+      const msg = isGeofence
+        ? t("outsideGeofenceHelp")
+        : isQR
+          ? t("qrExpiredHelp")
+          : isSchedule
+            ? t("noScheduleHelp")
+            : t("visitFailed");
+      setResult({
+        success: false,
+        message: msg,
+        retriable: isGeofence || isQR,
+      });
       animateResult(false);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!visitId || !notes.trim()) return;
+    try {
+      await updateVisitNotes(visitId, notes.trim());
+      setNotesSaved(true);
+      toastSuccess(t("notesSaved"));
+    } catch {
     }
   };
 
@@ -161,10 +193,10 @@ export default function RepQRScanner() {
           {!result && !processing && (
             <>
               <View style={{ width: hs(260), height: hs(260), borderRadius: hs(24), borderWidth: 2, borderColor: "rgba(255,255,255,0.3)", borderStyle: "dashed", position: "absolute" }} />
-              <View style={{ width: hs(40), height: 2, backgroundColor: theme.primary, position: "absolute", top: vs(100), left: hs(80), right: hs(80), borderRadius: 1, opacity: 0.6 }} />
-              <View style={{ width: hs(40), height: 2, backgroundColor: theme.primary, position: "absolute", bottom: vs(100), left: hs(80), right: hs(80), borderRadius: 1, opacity: 0.6 }} />
-              <View style={{ width: 2, height: hs(40), backgroundColor: theme.primary, position: "absolute", left: hs(100), top: hs(80), bottom: hs(80), borderRadius: 1, opacity: 0.6 }} />
-              <View style={{ width: 2, height: hs(40), backgroundColor: theme.primary, position: "absolute", right: hs(100), top: hs(80), bottom: hs(80), borderRadius: 1, opacity: 0.6 }} />
+              <View style={{ width: hs(40), height: vs(2), backgroundColor: theme.primary, position: "absolute", top: vs(100), left: hs(80), right: hs(80), borderRadius: hs(1), opacity: 0.6 }} />
+              <View style={{ width: hs(40), height: vs(2), backgroundColor: theme.primary, position: "absolute", bottom: vs(100), left: hs(80), right: hs(80), borderRadius: hs(1), opacity: 0.6 }} />
+              <View style={{ width: hs(2), height: hs(40), backgroundColor: theme.primary, position: "absolute", left: hs(100), top: hs(80), bottom: hs(80), borderRadius: hs(1), opacity: 0.6 }} />
+              <View style={{ width: hs(2), height: hs(40), backgroundColor: theme.primary, position: "absolute", right: hs(100), top: hs(80), bottom: hs(80), borderRadius: hs(1), opacity: 0.6 }} />
             </>
           )}
 
@@ -178,12 +210,6 @@ export default function RepQRScanner() {
               </Text>
             </View>
           )}
-        </View>
-
-        <View style={{ paddingHorizontal: hs(24), paddingBottom: vs(48), alignItems: "center" }}>
-          <Text style={{ fontSize: fontScale(14), color: "rgba(255,255,255,0.7)", textAlign: "center" }}>
-            {t("scanQRDesc")}
-          </Text>
         </View>
       </SafeAreaView>
 
@@ -244,23 +270,120 @@ export default function RepQRScanner() {
               {result.message}
             </Text>
 
-            <TouchableOpacity
-              onPress={() => router.back()}
-              activeOpacity={0.8}
-              style={{
-                marginTop: vs(32),
-                width: "100%",
-                height: vs(48),
-                borderRadius: hs(14),
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: accentColor,
-              }}
-            >
-              <Text style={{ fontSize: fontScale(15), fontWeight: "700", color: "white" }}>
-                {t("done")}
-              </Text>
-            </TouchableOpacity>
+            {result.success && visitId && (
+              <View style={{ width: "100%", marginTop: vs(20), gap: vs(10) }}>
+                {!notesSaved ? (
+                  <>
+                    <TextInput
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder={t("notesPlaceholder")}
+                      placeholderTextColor="rgba(255,255,255,0.35)"
+                      multiline
+                      maxLength={500}
+                      style={{
+                        width: "100%",
+                        minHeight: vs(60),
+                        maxHeight: vs(100),
+                        paddingHorizontal: hs(14),
+                        paddingVertical: vs(12),
+                        borderRadius: hs(12),
+                        backgroundColor: "rgba(255,255,255,0.08)",
+                        borderWidth: 1,
+                        borderColor: "rgba(255,255,255,0.15)",
+                        color: "white",
+                        fontSize: fontScale(13),
+                        lineHeight: fontScale(18),
+                        textAlignVertical: "top",
+                      }}
+                    />
+                    <TouchableOpacity
+                      onPress={handleSaveNotes}
+                      activeOpacity={0.8}
+                      disabled={!notes.trim()}
+                      style={{
+                        width: "100%",
+                        height: vs(40),
+                        borderRadius: hs(12),
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: notes.trim() ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)",
+                        borderWidth: 1,
+                        borderColor: notes.trim() ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
+                      }}
+                    >
+                      <Text style={{ fontSize: fontScale(13), fontWeight: "600", color: notes.trim() ? "white" : "rgba(255,255,255,0.4)" }}>
+                        {t("save")}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: hs(6), paddingVertical: vs(8) }}>
+                    <MaterialCommunityIcons name="check-circle" size={hs(18)} color="#059669" />
+                    <Text style={{ fontSize: fontScale(13), color: "#059669", fontWeight: "600" }}>
+                      {t("notesSaved")}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {result.retriable ? (
+              <View style={{ flexDirection: "row", gap: hs(12), marginTop: vs(32), width: "100%" }}>
+                <TouchableOpacity
+                  onPress={handleRetry}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    height: vs(48),
+                    borderRadius: hs(14),
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "rgba(255,255,255,0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.25)",
+                  }}
+                >
+                  <Text style={{ fontSize: fontScale(15), fontWeight: "700", color: "white" }}>
+                    {t("tryAgain")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    height: vs(48),
+                    borderRadius: hs(14),
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: accentColor,
+                  }}
+                >
+                  <Text style={{ fontSize: fontScale(15), fontWeight: "700", color: "white" }}>
+                    {t("done")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                activeOpacity={0.8}
+                style={{
+                  marginTop: vs(32),
+                  width: "100%",
+                  height: vs(48),
+                  borderRadius: hs(14),
+                  justifyContent: "center",
+                  alignItems: "center",
+                  backgroundColor: accentColor,
+                }}
+              >
+                <Text style={{ fontSize: fontScale(15), fontWeight: "700", color: "white" }}>
+                  {t("done")}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}

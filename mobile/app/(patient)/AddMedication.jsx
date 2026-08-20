@@ -15,9 +15,10 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import tw from "twrnc";
 import { addToWallet } from "@/services/walletService";
-import { getMyDiseases } from "@/services/diseaseService";
+import { getMyDiseases, getChronicDiseases } from "@/services/diseaseService";
+import { getDiseaseIcon } from "@/constants/conditionIcons";
 import { saveMedications } from "@/services/medicationStorage";
-import { scheduleMedicationReminders } from "@/services/notificationService";
+import { scheduleMedicationReminders, cancelAllReminders } from "@/services/notificationService";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useToast } from "@/src/context/ToastContext";
@@ -44,8 +45,15 @@ const to24Hour = (timeStr) => {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 };
 
-const formatTime = (date) =>
-  date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+const formatTime = (date) => {
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
+};
+
+const getChronicId = (d) => d.id ?? null;
 
 export default function AddMedication() {
   const router = useRouter();
@@ -81,8 +89,16 @@ export default function AddMedication() {
   useEffect(() => {
     (async () => {
       try {
-        const diseases = await getMyDiseases();
-        setChronicDiseases(Array.isArray(diseases) ? diseases : []);
+        const [catalog, myRecords] = await Promise.all([getChronicDiseases(), getMyDiseases()]);
+        const catalogArr = Array.isArray(catalog) ? catalog : [];
+        const recordsArr = Array.isArray(myRecords) ? myRecords : [];
+        const display = recordsArr
+          .map((record) => {
+            const entry = catalogArr.find((c) => c.id === record.chronic_disease_id);
+            return { ...record, name_en: entry?.name_en, name_ar: entry?.name_ar };
+          })
+          .filter((d) => d.name_en || d.name_ar);
+        setChronicDiseases(display);
       } catch {
         setChronicDiseases([]);
       }
@@ -151,7 +167,7 @@ export default function AddMedication() {
         const payload = {
           medication_id: String(med.medication_id),
           state: med.state,
-          chronic_id: med.chronic_id ? parseInt(med.chronic_id, 10) : null,
+          chronic_id: med.chronic_id || null,
           dosage: med.dosage,
           available_pills: parseInt(med.available_pills, 10) || 0,
           frequency: frequency,
@@ -173,6 +189,7 @@ export default function AddMedication() {
       }
 
       await saveMedications(reminders);
+      await cancelAllReminders();
       await scheduleMedicationReminders(reminders);
 
       toastSuccess(t("addedToWallet"));
@@ -413,35 +430,49 @@ export default function AddMedication() {
                   <View style={{ marginTop: vs(20) }}>
                     <SectionLabel>{t("chronicConditions")}</SectionLabel>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      {chronicDiseases.map((d) => (
-                        <TouchableOpacity
-                          key={d.id}
-                          onPress={() => updateMed(index, { chronic_id: med.chronic_id === d.chronic_disease_id ? null : d.chronic_disease_id })}
-                          style={[
-                            {
-                              paddingHorizontal: hs(16),
-                              paddingVertical: vs(8),
-                              borderRadius: hs(20),
-                              marginRight: hs(8),
-                            },
-                            med.chronic_id === d.chronic_disease_id
-                              ? {
-                                  backgroundColor: theme.primary,
-                                  ...webShadow({ elevation: 3, color: theme.primary, radius: 6, offsetY: 2 }),
-                                }
-                              : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
-                          ]}
-                        >
-                          <Text
+                      {chronicDiseases.map((d) => {
+                        const cid = getChronicId(d);
+                        const isSelected = med.chronic_id === cid;
+                        return (
+                          <TouchableOpacity
+                            key={d.id}
+                            disabled={!cid}
+                            onPress={() => updateMed(index, { chronic_id: isSelected ? null : cid })}
                             style={[
-                              { fontSize: fontScale(12), fontWeight: "700" },
-                              { color: med.chronic_id === d.chronic_disease_id ? "white" : theme.onSurfaceVariant },
+                              {
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: hs(6),
+                                paddingHorizontal: hs(14),
+                                paddingVertical: vs(8),
+                                borderRadius: hs(20),
+                                marginRight: hs(8),
+                                opacity: cid ? 1 : 0.4,
+                              },
+                              isSelected
+                                ? {
+                                    backgroundColor: theme.primary,
+                                    ...webShadow({ elevation: 3, color: theme.primary, radius: 6, offsetY: 2 }),
+                                  }
+                                : { backgroundColor: theme.surfaceContainerLow, borderWidth: 1, borderColor: theme.outlineVariant },
                             ]}
                           >
-                            {d.name_en || d.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                            <MaterialCommunityIcons
+                              name={getDiseaseIcon(d)}
+                              size={hs(16)}
+                              color={isSelected ? "white" : theme.onSurfaceVariant}
+                            />
+                            <Text
+                              style={[
+                                { fontSize: fontScale(12), fontWeight: "700" },
+                                { color: isSelected ? "white" : theme.onSurfaceVariant },
+                              ]}
+                            >
+                              {d.name_en || d.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </ScrollView>
                   </View>
                 )}
@@ -691,7 +722,7 @@ export default function AddMedication() {
               disabled={loading}
               style={[
                 {
-                  paddingVertical: vs(18),
+                  height: vs(60),
                   borderRadius: hs(16),
                   flexDirection: "row",
                   alignItems: "center",
@@ -708,7 +739,7 @@ export default function AddMedication() {
               ) : (
                 <>
                   <MaterialCommunityIcons name="check-bold" size={hs(22)} color="white" />
-                  <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                  <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
                     {t("saveSchedule")}
                   </Text>
                 </>

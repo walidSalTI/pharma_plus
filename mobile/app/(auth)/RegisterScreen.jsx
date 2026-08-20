@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import {
     ActivityIndicator,
@@ -12,16 +13,23 @@ import {
 } from "react-native";
 import tw from "twrnc";
 import { CustomSelect, InputField } from "@/components/FormInputs";
+import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
 import { useRegisterForm } from "@/hooks/useRegisterForm";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
+import { useToast } from "@/src/context/ToastContext";
+import { setConsent } from "@/services/legalConsentStorage";
+
+const AUTH_PRIMARY = "#4bbaba";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const { theme } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
+  const { error: toastError } = useToast();
+  const [consentChecked, setConsentChecked] = useState(false);
   const {
     loading,
     showPassword,
@@ -71,7 +79,7 @@ export default function RegisterScreen() {
                 borderRadius: hs(24),
                 justifyContent: "center",
                 alignItems: "center",
-                backgroundColor: theme.primary,
+                backgroundColor: AUTH_PRIMARY,
               }}
             >
               <MaterialCommunityIcons name="pulse" size={hs(28)} color="white" />
@@ -186,8 +194,17 @@ export default function RegisterScreen() {
             />
           </View>
 
+          <LegalConsentCheckbox checked={consentChecked} onToggle={() => setConsentChecked(!consentChecked)} />
+
           <TouchableOpacity
-            onPress={handleRegister}
+            onPress={async () => {
+              if (!consentChecked) {
+                toastError(t("consentRequired"));
+                return;
+              }
+              await setConsent(true, ["terms", "privacy"]);
+              handleRegister();
+            }}
             disabled={loading}
             style={{
               marginTop: vs(24),
@@ -195,7 +212,7 @@ export default function RegisterScreen() {
               borderRadius: hs(32),
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: theme.primary,
+              backgroundColor: AUTH_PRIMARY,
               opacity: loading ? 0.6 : 1,
             }}
           >
@@ -203,7 +220,7 @@ export default function RegisterScreen() {
               <ActivityIndicator size="small" color="white" />
             ) : (
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white", marginRight: hs(8) }}>
+                <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white", marginRight: hs(8) }}>
                   {t("createAccount")}
                 </Text>
                 <MaterialCommunityIcons name="arrow-right" size={hs(20)} color="white" />
@@ -217,7 +234,7 @@ export default function RegisterScreen() {
           >
             <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
               {t("alreadyHaveAccount")}{" "}
-              <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: theme.primary }]}>
+              <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: AUTH_PRIMARY }]}>
                 {t("login")}
               </Text>
             </Text>

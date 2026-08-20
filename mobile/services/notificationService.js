@@ -1,5 +1,8 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const SNOOZE_KEY = "@snoozed_notifications";
 
 const isNative = Platform.OS !== "web";
 
@@ -13,7 +16,7 @@ if (isNative) {
   });
 }
 
-const SNOOZE_MINUTES = 30;
+const SNOOZE_MINUTES = 10;
 const CATEGORY_ID = "medication_reminder";
 
 export const setupCategory = async () => {
@@ -24,7 +27,7 @@ export const setupCategory = async () => {
         identifier: "snooze",
         buttonTitle: "Remind me later",
         options: {
-          opensAppToForeground: false,
+          opensAppToForeground: true,
         },
       },
     ]);
@@ -89,6 +92,7 @@ const scheduleForTime = async (med, doseTime24, dayOfWeek) => {
     content: {
       title: med.name || med.trade_name,
       body: `Time for ${med.name || med.trade_name} — ${med.dosage}`,
+      sound: true,
       data: {
         medication_id: med.medication_id,
         dosage: med.dosage,
@@ -125,28 +129,90 @@ export const scheduleMedicationReminders = async (medications) => {
 export const snoozeNotification = async (notification) => {
   if (!isNative) return null;
   const { content } = notification.request;
-  const fireDate = new Date(Date.now() + SNOOZE_MINUTES * 60 * 1000);
 
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: content.title,
       body: `${content.body} (snoozed)`,
+      sound: true,
       data: content.data,
       categoryIdentifier: CATEGORY_ID,
       ...(Platform.OS === "android" ? { channelId: "default" } : {}),
     },
     trigger: {
-      type: "date",
-      date: fireDate,
+      type: "timeInterval",
+      seconds: SNOOZE_MINUTES * 60,
+      repeats: false,
     },
   });
 
+  await saveSnoozedId(id);
   return id;
+};
+
+const saveSnoozedId = async (id) => {
+  try {
+    const raw = await AsyncStorage.getItem(SNOOZE_KEY);
+    const ids = raw ? JSON.parse(raw) : [];
+    ids.push(id);
+    await AsyncStorage.setItem(SNOOZE_KEY, JSON.stringify(ids));
+  } catch (e) {
+    console.warn("[Notif] saveSnoozedId error:", e);
+  }
+};
+
+const removeSnoozedId = async (id) => {
+  try {
+    const raw = await AsyncStorage.getItem(SNOOZE_KEY);
+    if (!raw) return;
+    const ids = JSON.parse(raw).filter((i) => i !== id);
+    if (ids.length === 0) {
+      await AsyncStorage.removeItem(SNOOZE_KEY);
+    } else {
+      await AsyncStorage.setItem(SNOOZE_KEY, JSON.stringify(ids));
+    }
+  } catch (e) {
+    console.warn("[Notif] removeSnoozedId error:", e);
+  }
+};
+
+const getSnoozedIds = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(SNOOZE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 };
 
 export const cancelAllReminders = async () => {
   if (!isNative) return;
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  const snoozedIds = await getSnoozedIds();
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+
+  for (const n of all) {
+    if (!snoozedIds.includes(n.identifier)) {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
+};
+
+export const restoreSnoozedNotifications = async () => {
+  if (!isNative) return;
+  try {
+    const all = await Notifications.getAllScheduledNotificationsAsync();
+    const scheduledIds = new Set(all.map((n) => n.identifier));
+    const snoozedIds = await getSnoozedIds();
+
+    for (const id of snoozedIds) {
+      if (!scheduledIds.has(id)) {
+        await Notifications.cancelScheduledNotificationAsync(id);
+        await removeSnoozedId(id);
+      }
+    }
+  } catch (e) {
+    console.warn("[Notif] restoreSnoozedNotifications error:", e);
+  }
 };
 
 export const syncRemindersFromStorage = async (getMedications) => {

@@ -14,9 +14,11 @@ import { InputField } from "@/components/FormInputs";
 import { logoutUser } from "@/services/authService";
 import { logoutDoctor } from "@/services/doctorAuthService";
 import { logoutRep } from "@/services/repAuthService";
-import { clearToken, getUserRole } from "@/services/tokenService";
+import { clearToken, clearUserRole, getUserRole } from "@/services/tokenService";
 import { clearAllReminders } from "@/services/reminderCleanup";
+import { clearConsent } from "@/services/legalConsentStorage";
 import { deleteAccount, getProfile, updateProfile } from "@/services/profileService";
+import { getDoctorProfile, updateDoctorProfile } from "@/services/doctorService";
 import { getRepDashboard } from "@/services/repService";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
@@ -46,8 +48,8 @@ export default function SettingsScreen() {
   const [phone, setPhone] = useState("");
   const [age, setAge] = useState("");
   const [location, setLocation] = useState("");
-  const [company, setCompany] = useState("");
   const [errors, setErrors] = useState({});
+  const [specialization, setSpecialization] = useState("");
 
   const isRep = role === "rep";
 
@@ -64,7 +66,13 @@ export default function SettingsScreen() {
         setFName(rep.f_name || rep.name?.split(" ")[0] || "");
         setLName(rep.l_name || rep.name?.split(" ").slice(1).join(" ") || "");
         setEmail(rep.email || "");
-        setCompany(rep.company || "");
+      } else if (currentRole === "doctor") {
+        const data = await getDoctorProfile();
+        setFName(data.f_name || "");
+        setLName(data.l_name || "");
+        setEmail(data.email || "");
+        setPhone(data.phone_number || "");
+        setSpecialization(data.specialization || "");
       } else {
         const data = await getProfile();
         setFName(data.f_name || "");
@@ -89,7 +97,7 @@ export default function SettingsScreen() {
     const errs = {};
     if (!fName.trim()) errs.fName = t("fNameRequired");
     if (!lName.trim()) errs.lName = t("lNameRequired");
-    if (!isRep && age && (isNaN(Number(age)) || Number(age) < 1 || Number(age) > 150))
+    if (!isRep && age && (isNaN(Number(age)) || Number(age) < 19 || Number(age) > 150))
       errs.age = t("invalidAge");
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -99,15 +107,22 @@ export default function SettingsScreen() {
     if (!validate()) return;
     setSaving(true);
     try {
-      await updateProfile({
-        f_name: fName.trim(),
-        l_name: lName.trim(),
-        ...(isRep ? {} : {
-          age: age ? Number(age) : undefined,
-          location: location.trim() || undefined,
-          phone_number: phone.trim() || undefined,
-        }),
-      });
+      if (role === "doctor") {
+        await updateDoctorProfile({
+          f_name: fName.trim(),
+          l_name: lName.trim(),
+        });
+      } else {
+        await updateProfile({
+          f_name: fName.trim(),
+          l_name: lName.trim(),
+          ...(isRep ? {} : {
+            age: age ? Number(age) : undefined,
+            location: location.trim() || undefined,
+            phone_number: phone.trim() || undefined,
+          }),
+        });
+      }
       toastSuccess(t("profileSaved"));
     } catch (e) {
       toastError(e.message || t("failedUpdate"));
@@ -130,7 +145,9 @@ export default function SettingsScreen() {
     }
     await clearAllReminders();
     await clearToken();
+    await clearUserRole();
     signOut();
+    router.dismissAll();
     router.replace("/");
   };
 
@@ -158,7 +175,10 @@ export default function SettingsScreen() {
           await deleteAccount();
           await clearAllReminders();
           await clearToken();
+          await clearUserRole();
+          await clearConsent();
           signOut();
+          router.dismissAll();
           router.replace("/");
         } catch (e) {
           toastError(e.message || t("failedDelete"));
@@ -202,13 +222,7 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingBottom: isRep ? vs(192) : vs(48) }}
       >
         <View style={{ alignItems: "center", paddingTop: vs(32), paddingBottom: vs(24) }}>
-          <View style={[{ width: hs(80), height: hs(80), borderRadius: hs(40), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.primaryContainer }]}>
-            <Text style={[{ fontSize: fontScale(30), fontWeight: "700" }, { color: theme.primary }]}>
-              {fName.charAt(0).toUpperCase()}
-              {lName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={[{ fontSize: fontScale(20), fontWeight: "700", marginTop: vs(12) }, { color: theme.onSurface }]}>
+          <Text style={[{ fontSize: fontScale(20), fontWeight: "700" }, { color: theme.onSurface }]}>
             {fName} {lName}
           </Text>
           <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
@@ -228,7 +242,7 @@ export default function SettingsScreen() {
                   icon="account-outline"
                   value={fName}
                   onChangeText={setFName}
-                  placeholder={t("john")}
+                  placeholder={t("firstNamePlaceholder")}
                   error={errors.fName}
                 />
               </View>
@@ -238,7 +252,7 @@ export default function SettingsScreen() {
                   icon="account-outline"
                   value={lName}
                   onChangeText={setLName}
-                  placeholder={t("doe")}
+                  placeholder={t("lastNamePlaceholder")}
                   error={errors.lName}
                 />
               </View>
@@ -249,22 +263,25 @@ export default function SettingsScreen() {
               value={email}
               editable={false}
               placeholder="email@example.com"
+              onPress={() => toastError(t("cannotEdit"))}
             />
-            {isRep ? (
+            {role === "doctor" && (
               <InputField
-                label={t("company")}
-                icon="domain"
-                value={company}
+                label={t("specialization")}
+                icon="medical-bag"
+                value={specialization}
                 editable={false}
+                onPress={() => toastError(t("cannotEdit"))}
               />
-            ) : (
+            )}
+            {!isRep && (
               <>
                 <InputField
                   label={t("phone")}
                   icon="phone-outline"
                   value={phone}
                   onChangeText={setPhone}
-                  placeholder="+1 234 567 890"
+                  placeholder={t("phonePlaceholder")}
                   keyboardType="phone-pad"
                 />
                 <InputField
@@ -272,7 +289,7 @@ export default function SettingsScreen() {
                   icon="calendar-outline"
                   value={age}
                   onChangeText={setAge}
-                  placeholder="25"
+                  placeholder={t("agePlaceholder")}
                   keyboardType="number-pad"
                   error={errors.age}
                 />
@@ -291,9 +308,10 @@ export default function SettingsScreen() {
             onPress={handleSave}
             disabled={saving}
             style={{
-              paddingVertical: vs(16),
+              height: vs(56),
               borderRadius: hs(16),
               alignItems: "center",
+              justifyContent: "center",
               marginTop: vs(24),
               backgroundColor: theme.primary,
               opacity: saving ? 0.6 : 1,
@@ -303,7 +321,7 @@ export default function SettingsScreen() {
             {saving ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text style={[{ fontSize: fontScale(16), fontWeight: "700", color: "white" }]}>{t("saveChanges")}</Text>
+              <Text numberOfLines={1} style={[{ fontSize: fontScale(16), fontWeight: "700", color: "white" }]}>{t("saveChanges")}</Text>
             )}
           </TouchableOpacity>
 
@@ -391,6 +409,40 @@ export default function SettingsScreen() {
               </Text>
             </TouchableOpacity>
           )}
+
+          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+
+          <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
+            {t("legal")}
+          </Text>
+
+          <View style={{ gap: vs(12) }}>
+            <TouchableOpacity
+              onPress={() => router.push("/terms")}
+              style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: hs(16), borderRadius: hs(16) }, { backgroundColor: theme.surfaceContainerLowest }]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
+                <MaterialCommunityIcons name="file-document-outline" size={hs(22)} color={theme.onSurfaceVariant} />
+                <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>
+                  {t("termsOfUse")}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={hs(22)} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push("/privacy")}
+              style={[{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: hs(16), borderRadius: hs(16) }, { backgroundColor: theme.surfaceContainerLowest }]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
+                <MaterialCommunityIcons name="shield-account-outline" size={hs(22)} color={theme.onSurfaceVariant} />
+                <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>
+                  {t("privacyPolicy")}
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={hs(22)} color={theme.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
@@ -9,7 +10,8 @@ export default function DoctorBottomNavBar({ activeTab }) {
   const router = useRouter();
   const { t } = useLanguage();
   const { theme } = useAppTheme();
-  const { hs, fontScale } = useResponsive();
+  const { hs, vs, fontScale } = useResponsive();
+  const insets = useSafeAreaInsets();
 
   const tabs = [
     {
@@ -32,12 +34,12 @@ export default function DoctorBottomNavBar({ activeTab }) {
         flexDirection: "row",
         justifyContent: "space-around",
         alignItems: "center",
-        paddingHorizontal: hs(40),
-        paddingTop: 16,
-        paddingBottom: 32,
+        paddingHorizontal: hs(12),
+        paddingTop: vs(8),
+        paddingBottom: insets.bottom + 8,
         backgroundColor: theme.surfaceContainerLowest,
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
+        borderTopLeftRadius: hs(30),
+        borderTopRightRadius: hs(30),
         borderTopWidth: 1,
         borderTopColor: theme.outlineVariant,
       }}
@@ -54,15 +56,15 @@ export default function DoctorBottomNavBar({ activeTab }) {
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              paddingVertical: 8,
-              paddingHorizontal: 24,
-              borderRadius: 16,
+              paddingVertical: vs(8),
+              paddingHorizontal: hs(16),
+              borderRadius: hs(16),
               backgroundColor: isActive ? theme.primaryContainer + "40" : "transparent",
             }}
           >
             <MaterialCommunityIcons
               name={tab.icon}
-              size={hs(26)}
+              size={hs(22)}
               color={isActive ? theme.primary : theme.onSurfaceVariant}
             />
             <Text
@@ -70,7 +72,7 @@ export default function DoctorBottomNavBar({ activeTab }) {
                 fontSize: fontScale(10),
                 textTransform: "uppercase",
                 fontWeight: "700",
-                marginTop: 4,
+                marginTop: vs(4),
                 color: isActive ? theme.primary : theme.onSurfaceVariant,
               }}
             >

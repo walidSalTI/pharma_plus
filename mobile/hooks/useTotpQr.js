@@ -14,12 +14,17 @@ export const useTotpQr = (doctorId) => {
   const timerRef = useRef(null);
   const appState = useRef(AppState.currentState);
   const secretRef = useRef(null);
+  const refreshCounter = useRef(0);
 
   const generateCode = useCallback(() => {
     if (!secretRef.current || !doctorId) return;
-    const newPayload = getTotpPayload(doctorId, secretRef.current);
-    setPayload(newPayload);
-    setTimeRemaining(ROTATION_INTERVAL);
+    try {
+      const newPayload = getTotpPayload(doctorId, secretRef.current);
+      setPayload(newPayload);
+      setTimeRemaining(ROTATION_INTERVAL);
+    } catch (err) {
+      console.warn("[TOTP] Error generating code:", err.message);
+    }
   }, [doctorId]);
 
   const startTimer = useCallback(() => {
@@ -47,31 +52,41 @@ export const useTotpQr = (doctorId) => {
     setPayload(null);
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      setError(null);
-      const token = await getStoredToken();
-      if (!token || !doctorId) return;
+  const initSecret = useCallback(async (forceRefresh = false) => {
+    setError(null);
+    const token = await getStoredToken();
+    if (!token || !doctorId) return;
 
-      try {
-        const secret = await getSecretKey();
-        if (secret) {
-          secretRef.current = secret;
-          setSecretReady(true);
-          startTimer();
-        } else {
-          setError("Failed to fetch secret key. Please check your connection and try again.");
-        }
-      } catch (err) {
-        console.warn("[TOTP] Error initializing QR:", err.message);
-        setError(err.message || "Failed to initialize QR code.");
+    try {
+      const secret = await getSecretKey({ forceRefresh });
+      if (secret) {
+        secretRef.current = secret;
+        setSecretReady(true);
+        startTimer();
+      } else {
+        setError("Failed to fetch secret key. Please check your connection and try again.");
       }
-    })();
+    } catch (err) {
+      console.warn("[TOTP] Error initializing QR:", err.message);
+      setError(err.message || "Failed to initialize QR code.");
+    }
+  }, [doctorId, startTimer]);
+
+  const refresh = useCallback(async () => {
+    stopTimer();
+    secretRef.current = null;
+    setSecretReady(false);
+    refreshCounter.current += 1;
+    await initSecret(true);
+  }, [stopTimer, initSecret]);
+
+  useEffect(() => {
+    initSecret(false);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [doctorId]);
+  }, [doctorId, initSecret]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -88,5 +103,5 @@ export const useTotpQr = (doctorId) => {
     return () => subscription?.remove();
   }, [doctorId, startTimer, stopTimer]);
 
-  return { payload, timeRemaining, isActive, secretReady, error };
+  return { payload, timeRemaining, isActive, secretReady, error, refresh };
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getWallet } from "@/services/walletService";
 import { saveMedsCache, getMedsCache } from "@/services/medicationStorage";
 
@@ -9,21 +9,40 @@ const to12Hour = (time24) => {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 };
 
-const findNextDose = (schedules) => {
+const findNextDose = (schedules, medId, takenDoses) => {
   if (!schedules || schedules.length === 0) return null;
 
   const now = new Date();
   const currentDay = now.getDay();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const dateKey = now.toISOString().split("T")[0];
 
   let best = null;
   let bestDiff = Infinity;
 
   for (const s of schedules) {
+    const takenKey = `${dateKey}_${medId}_${s.dose_time}`;
+    const isTakenToday = takenDoses.has(takenKey);
+
     const [h, m] = s.dose_time.split(":").map(Number);
     const scheduleMinutes = h * 60 + m;
-    let dayDiff = (s.day_of_week - currentDay + 7) % 7;
-    if (dayDiff === 0 && scheduleMinutes <= currentMinutes) dayDiff = 7;
+
+    let dayDiff;
+    if (s.day_of_week === null) {
+      if (isTakenToday) {
+        dayDiff = 1;
+      } else {
+        dayDiff = scheduleMinutes > currentMinutes ? 0 : 1;
+      }
+    } else {
+      if (isTakenToday && currentDay === s.day_of_week) {
+        dayDiff = 7;
+      } else {
+        dayDiff = (s.day_of_week - currentDay + 7) % 7;
+        if (dayDiff === 0 && scheduleMinutes <= currentMinutes) dayDiff = 7;
+      }
+    }
+
     const totalDiff = dayDiff * 24 * 60 + (scheduleMinutes - currentMinutes);
     if (totalDiff < bestDiff) {
       bestDiff = totalDiff;
@@ -31,11 +50,12 @@ const findNextDose = (schedules) => {
     }
   }
 
-  return best;
+  return { schedule: best, totalDiff: bestDiff };
 };
 
-const toUIMed = (item) => {
-  const next = findNextDose(item.schedules);
+const toUIMed = (item, takenDoses) => {
+  const result = findNextDose(item.schedules, item.medication_id, takenDoses);
+  const next = result?.schedule;
   return {
     id: item.id,
     medicationId: item.medication_id,
@@ -52,6 +72,8 @@ const toUIMed = (item) => {
     instructionsAfter: item.instructions_after,
     schedules: item.schedules,
     frequency: item.frequency,
+    nextDoseMinutes: result?.totalDiff ?? Infinity,
+    nextDoseTime24: next?.dose_time ?? null,
   };
 };
 
@@ -60,6 +82,12 @@ export const useMedicationsData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [offline, setOffline] = useState(false);
+  const takenDosesRef = useRef(new Set());
+
+  const markDoseTaken = useCallback((medId, doseTime) => {
+    const dateKey = new Date().toISOString().split("T")[0];
+    takenDosesRef.current.add(`${dateKey}_${medId}_${doseTime}`);
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -70,13 +98,13 @@ export const useMedicationsData = () => {
       await saveMedsCache(items);
       setOffline(false);
       const active = items.filter((item) => item.is_active !== false);
-      setMeds(active.map(toUIMed));
+      setMeds(active.map((item) => toUIMed(item, takenDosesRef.current)));
     } catch {
       setError(true);
       const cached = await getMedsCache();
       if (Array.isArray(cached) && cached.length > 0) {
         const active = cached.filter((item) => item.is_active !== false);
-        setMeds(active.map(toUIMed));
+        setMeds(active.map((item) => toUIMed(item, takenDosesRef.current)));
         setOffline(true);
       } else {
         setMeds([]);
@@ -91,11 +119,9 @@ export const useMedicationsData = () => {
     loadData();
   }, [loadData]);
 
-  const sortedByNextDose = [...meds.filter((m) => !m.isAsNeeded)].sort((a, b) => {
-    const aNext = a.time === "As Needed" ? "23:59" : a.time;
-    const bNext = b.time === "As Needed" ? "23:59" : b.time;
-    return aNext.localeCompare(bNext);
-  });
+  const sortedByNextDose = [...meds.filter((m) => !m.isAsNeeded)].sort(
+    (a, b) => (a.nextDoseMinutes ?? Infinity) - (b.nextDoseMinutes ?? Infinity)
+  );
 
   const nextMed = sortedByNextDose.length > 0 ? sortedByNextDose[0] : null;
   const otherMeds = sortedByNextDose.slice(1);
@@ -108,5 +134,6 @@ export const useMedicationsData = () => {
     nextMed,
     otherMeds,
     refreshMedications: loadData,
+    markDoseTaken,
   };
 };

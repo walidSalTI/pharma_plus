@@ -52,13 +52,13 @@ function WorkplaceCard({ workplace, onEdit, onDelete }) {
       </View>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: hs(16), paddingLeft: hs(52) }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4) }}>
           <MaterialCommunityIcons name="crosshairs" size={hs(14)} color={theme.onSurfaceVariant} />
           <Text style={{ fontSize: fontScale(12), color: theme.onSurfaceVariant }}>
             {Number(workplace.latitude).toFixed(4)}, {Number(workplace.longitude).toFixed(4)}
           </Text>
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4) }}>
           <MaterialCommunityIcons name="radius-outline" size={hs(14)} color={theme.onSurfaceVariant} />
           <Text style={{ fontSize: fontScale(12), color: theme.onSurfaceVariant }}>
             {workplace.radius_meters}m

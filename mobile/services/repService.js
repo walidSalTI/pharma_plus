@@ -12,10 +12,10 @@ export const getRepScheduleDetail = async (id) => {
   return apiFetch(`/rep/schedules/${id}`);
 };
 
-export const checkInVisit = async ({ doctor_id, code, latitude, longitude, schedule_id }) => {
+export const checkInVisit = async ({ doctor_id, code, latitude, longitude, schedule_id, notes }) => {
   return apiFetch(`/rep/visits/check-in`, {
     method: "POST",
-    body: JSON.stringify({ doctor_id, code, latitude, longitude, schedule_id }),
+    body: JSON.stringify({ doctor_id, code, latitude, longitude, schedule_id, notes }),
   });
 };
 

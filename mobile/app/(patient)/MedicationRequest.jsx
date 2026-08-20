@@ -29,7 +29,7 @@ export default function MedicationRequest() {
   const { t } = useLanguage();
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale, isTablet, isLandscape } = useResponsive();
-  const { userName } = useUserName();
+  const { userName, lName } = useUserName();
   const { error: toastError } = useToast();
   const searchInputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -121,6 +121,8 @@ export default function MedicationRequest() {
         ? prev.filter((m) => m.id !== item.id)
         : [...prev, item],
     );
+    setPharmacyResults([]);
+    setHasSearchedPharmacy(false);
   };
 
   const clearBasket = () => setBasket([]);
@@ -158,14 +160,9 @@ export default function MedicationRequest() {
       <SafeAreaView style={tw`flex-1`}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: hs(24), paddingVertical: vs(14), backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.surfaceContainerLow }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: hs(10) }}>
-            <View style={{ width: hs(38), height: hs(38), borderRadius: hs(19), backgroundColor: theme.primaryContainer, alignItems: "center", justifyContent: "center" }}>
-              <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.primary }]}>
-                {(userName || t("vitalisHealth")).charAt(0).toUpperCase()}
-              </Text>
-            </View>
             <View>
-              <Text style={[{ fontSize: fontScale(18), fontWeight: "700", letterSpacing: -0.3 }, { color: theme.onSurface }]}>
-                {userName || t("vitalisHealth")}
+              <Text numberOfLines={1} style={[{ fontSize: fontScale(18), fontWeight: "700", letterSpacing: -0.3 }, { color: theme.onSurface }]}>
+                {userName} {lName}
               </Text>
               <Text style={[{ fontSize: fontScale(11) }, { color: theme.onSurfaceVariant }]}>
                 {t("findYourMed")}
@@ -308,7 +305,7 @@ export default function MedicationRequest() {
                     {t("nearbyPharmacies")}
                   </Text>
                 </View>
-                <Text style={[{ fontSize: fontScale(12), fontWeight: "600" }, { color: theme.primary }]}>
+                <Text style={[{ fontSize: fontScale(12), fontWeight: "600" }, { color: theme.primary }]} numberOfLines={1}>
                   {pharmacyResults.length} {t("results")}
                 </Text>
               </View>
@@ -329,10 +326,18 @@ export default function MedicationRequest() {
                           {ph.pharmacy_name}
                         </Text>
                       </View>
-                      {ph.is_open !== false && (
-                        <View style={{ backgroundColor: "#dcfce7", paddingHorizontal: hs(8), paddingVertical: vs(2), borderRadius: hs(10) }}>
+                      {ph.is_open !== false ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(5), backgroundColor: "#dcfce7", paddingHorizontal: hs(8), paddingVertical: vs(2), borderRadius: hs(10) }}>
+                          <View style={{ width: hs(7), height: hs(7), borderRadius: hs(4), backgroundColor: "#16a34a" }} />
                           <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: "#16a34a", textTransform: "uppercase", letterSpacing: 0.5 }}>
                             {t("open")}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(5), backgroundColor: "#fee2e2", paddingHorizontal: hs(8), paddingVertical: vs(2), borderRadius: hs(10) }}>
+                          <View style={{ width: hs(7), height: hs(7), borderRadius: hs(4), backgroundColor: "#dc2626" }} />
+                          <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: "#dc2626", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                            {t("closed")}
                           </Text>
                         </View>
                       )}
@@ -340,7 +345,7 @@ export default function MedicationRequest() {
                     <Text style={[{ fontSize: fontScale(12), marginBottom: vs(10) }, { color: theme.onSurfaceVariant }]} numberOfLines={1}>
                       {ph.pharmacy_address}
                     </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: hs(16), marginBottom: vs(10), paddingVertical: vs(6), borderTopWidth: 1, borderTopColor: theme.surfaceContainerLow, borderBottomWidth: 1, borderBottomColor: theme.surfaceContainerLow }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: hs(16), flexWrap: "wrap", marginBottom: vs(10), paddingVertical: vs(6), borderTopWidth: 1, borderTopColor: theme.surfaceContainerLow, borderBottomWidth: 1, borderBottomColor: theme.surfaceContainerLow }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4) }}>
                         <MaterialCommunityIcons name="map-marker-distance" size={hs(14)} color={theme.onSurfaceVariant} />
                         <Text style={[{ fontSize: fontScale(12) }, { color: theme.onSurface }]}>
@@ -370,7 +375,7 @@ export default function MedicationRequest() {
                       {(ph.medications || []).filter((m) => Array.isArray(m.conflicts) && m.conflicts.length > 0).length > 0 && (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: hs(5), backgroundColor: "#fee2e2", alignSelf: "flex-start", paddingHorizontal: hs(10), paddingVertical: vs(3), borderRadius: hs(12), marginTop: vs(8) }}>
                           <MaterialCommunityIcons name="alert-circle" size={hs(14)} color="#b91c1c" />
-                          <Text style={{ fontSize: fontScale(11), fontWeight: "700", color: "#b91c1c" }}>
+                          <Text style={{ fontSize: fontScale(11), fontWeight: "700", color: "#b91c1c" }} numberOfLines={1}>
                             {(ph.medications || []).reduce((n, m) => n + (Array.isArray(m.conflicts) ? m.conflicts.length : 0), 0)} {t("conflictsDetected")}
                           </Text>
                         </View>
@@ -383,8 +388,10 @@ export default function MedicationRequest() {
           )}
 
         </ScrollView>
+      </SafeAreaView>
 
-        {basket.length > 0 && (
+      <View style={tw`absolute bottom-0 left-0 right-0 z-50`}>
+        {basket.length > 0 && pharmacyResults.length === 0 && (
           <View style={{ backgroundColor: theme.surface, borderTopWidth: 1, borderTopColor: theme.surfaceContainerLow, paddingHorizontal: hs(20), paddingVertical: vs(10) }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: vs(10) }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -442,8 +449,8 @@ export default function MedicationRequest() {
             </TouchableOpacity>
           </View>
         )}
-      </SafeAreaView>
-      <BottomNavBar activeTab="Order" />
+        <BottomNavBar activeTab="Order" />
+      </View>
     </View>
   );
 }

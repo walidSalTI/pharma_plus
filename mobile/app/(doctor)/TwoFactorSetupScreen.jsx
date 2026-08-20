@@ -109,11 +109,11 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
                 alignItems: "center",
                 justifyContent: "space-between",
                 backgroundColor: theme.surfaceContainerLow,
-                borderRadius: 16,
+                borderRadius: hs(16),
                 padding: vs(16),
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
                 <MaterialCommunityIcons
                   name={isEnabled ? "shield-check" : "shield-off"}
                   size={hs(24)}
@@ -130,19 +130,19 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
               </View>
               <View
                 style={{
-                  width: 51,
-                  height: 31,
-                  borderRadius: 16,
+                  width: hs(51),
+                  height: vs(31),
+                  borderRadius: hs(16),
                   backgroundColor: isEnabled ? theme.primary : theme.outlineVariant,
                   justifyContent: "center",
-                  paddingHorizontal: 2,
+                  paddingHorizontal: hs(2),
                 }}
               >
                 <View
                   style={{
-                    width: 27,
-                    height: 27,
-                    borderRadius: 14,
+                    width: hs(27),
+                    height: vs(27),
+                    borderRadius: hs(14),
                     backgroundColor: "white",
                     alignSelf: isEnabled ? "flex-end" : "flex-start",
                     elevation: 2,
@@ -161,7 +161,7 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
               activeOpacity={0.8}
               style={{
                 height: vs(56),
-                borderRadius: 28,
+                borderRadius: hs(28),
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: actionLoading
@@ -253,13 +253,13 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
             {qrData.secret && (
               <View
                 style={{
-                  backgroundColor: theme.surfaceContainerLow,
-                  borderRadius: 12,
-                  padding: vs(12),
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: fontScale(11), color: theme.onSurfaceVariant, marginBottom: 4 }}>
+                backgroundColor: theme.surfaceContainerLow,
+                borderRadius: hs(12),
+                padding: vs(12),
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontSize: fontScale(11), color: theme.onSurfaceVariant, marginBottom: vs(4) }}>
                   Secret Key
                 </Text>
                 <Text style={{ fontSize: fontScale(14), fontFamily: "monospace", color: theme.onSurface, letterSpacing: 2 }}>
@@ -286,7 +286,7 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
                   style={{
                     width: hs(48),
                     height: vs(56),
-                    borderRadius: 12,
+                    borderRadius: hs(12),
                     borderWidth: 1,
                     textAlign: "center",
                     fontSize: fontScale(22),
@@ -311,7 +311,7 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
               activeOpacity={0.8}
               style={{
                 height: vs(56),
-                borderRadius: 28,
+                borderRadius: hs(28),
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor:
@@ -380,9 +380,9 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
             <View
               style={{
                 backgroundColor: theme.surfaceContainerLow,
-                borderRadius: 12,
+                borderRadius: hs(12),
                 padding: vs(16),
-                gap: 8,
+                gap: hs(8),
               }}
             >
               {recoveryCodes.map((code, i) => (
@@ -406,7 +406,7 @@ export default function TwoFactorSetupScreen({ role = "doctor" }) {
               activeOpacity={0.8}
               style={{
                 height: vs(56),
-                borderRadius: 28,
+                borderRadius: hs(28),
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: theme.primary,

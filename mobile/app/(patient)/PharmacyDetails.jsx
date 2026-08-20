@@ -12,12 +12,11 @@ import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useToast } from "@/src/context/ToastContext";
 import { useResponsive } from "@/constants/responsive";
 import { placeOrder, getOrderStatus } from "@/services/orderService";
-import InteractionSummaryCard from "@/components/InteractionSummaryCard";
 import SettingsButton from "@/components/SettingsButton";
 
 export default function PharmacyDetails() {
   const { t } = useLanguage();
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
   const { error: toastError, warning: toastWarning } = useToast();
   const { pharmacy, medications, interactions } = useLocalSearchParams();
@@ -31,6 +30,12 @@ export default function PharmacyDetails() {
   // حالات خاصة بالتضارب الدوائي (Drug Interaction States)
   const [interactionModalVisible, setInteractionModalVisible] = useState(false);
   const [interactionWarnings, setInteractionWarnings] = useState([]);
+  const [expandedConflicts, setExpandedConflicts] = useState({});
+  const [expandedInteractionBanner, setExpandedInteractionBanner] = useState(false);
+
+  const toggleConflictExpand = (medId) => {
+    setExpandedConflicts((prev) => ({ ...prev, [medId]: !prev[medId] }));
+  };
 
   let pharmacyData = null;
   let medicationsData = [];
@@ -131,6 +136,10 @@ export default function PharmacyDetails() {
   const handlePlaceOrder = async () => {
     if (!pharmacyData || medicationsData.length === 0) return;
     if (placing || orderPlaced) return;
+    if (pharmacyData.is_open === false) {
+      toastWarning(t("pharmacyClosed"));
+      return;
+    }
     const selectedItems = medicationsData.filter((m) => selectedMeds[m.medication_id || m.id] !== false);
     if (selectedItems.length === 0) {
       toastWarning("Please select at least one medication");
@@ -209,9 +218,19 @@ export default function PharmacyDetails() {
                 </View>
                 <Text style={[{ fontSize: fontScale(18), fontWeight: "700", flex: 1 }, { color: theme.onSurface }]}>{pharmacyData.name}</Text>
               </View>
-              {pharmacyData.is_open !== false && (
-                <View style={{ backgroundColor: theme.primaryContainer, paddingHorizontal: hs(10), paddingVertical: vs(3), borderRadius: hs(12) }}>
-                  <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: theme.primary, textTransform: "uppercase" }}>{t("open")}</Text>
+              {pharmacyData.is_open !== false ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: hs(5), backgroundColor: "#dcfce7", paddingHorizontal: hs(10), paddingVertical: vs(3), borderRadius: hs(12) }}>
+                  <View style={{ width: hs(7), height: hs(7), borderRadius: hs(4), backgroundColor: "#16a34a" }} />
+                  <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: "#16a34a", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    {t("open")}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: hs(5), backgroundColor: "#fee2e2", paddingHorizontal: hs(10), paddingVertical: vs(3), borderRadius: hs(12) }}>
+                  <View style={{ width: hs(7), height: hs(7), borderRadius: hs(4), backgroundColor: "#dc2626" }} />
+                  <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: "#dc2626", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    {t("closed")}
+                  </Text>
                 </View>
               )}
             </View>
@@ -261,9 +280,108 @@ export default function PharmacyDetails() {
         </View>
 
         {/* ملخص فحص التفاعلات الدوائية */}
-        {interactionData && (
-          <InteractionSummaryCard payload={interactionData} />
-        )}
+        {interactionData && (() => {
+          const rank = Number(interactionData.rank);
+          const isError = rank === 3 || interactionData.isError;
+          const conflicts = Array.isArray(interactionData.conflicts) ? interactionData.conflicts : [];
+          const hasHigh = conflicts.some((c) => Number(c.risk_level) >= 2);
+          const hasConflicts = conflicts.length > 0;
+
+          const bannerBg = isError
+            ? (isDark ? "#2d2200" : "#fef3c7")
+            : hasHigh
+              ? (isDark ? "#2d0a0a" : "#fef2f2")
+              : hasConflicts
+                ? (isDark ? "#2d2200" : "#fffbeb")
+                : (isDark ? "#0a2d1a" : "#f0fdf4");
+          const bannerAccent = isError ? "#d97706" : hasHigh ? theme.error : hasConflicts ? "#d97706" : "#16a34a";
+          const bannerIcon = isError ? "cloud-off-outline" : hasHigh ? "alert-octagon" : hasConflicts ? "alert-outline" : "shield-check";
+          const bannerTitle = isError
+            ? t("interactionCheckUnavailableBanner")
+            : hasHigh
+              ? t("highRiskBanner")
+              : hasConflicts
+                ? t("interactionsDetectedBanner", { count: conflicts.length })
+                : t("noInteractionsBanner");
+          const bannerDesc = isError
+            ? ""
+            : hasHigh
+              ? t("reviewBeforeOrdering")
+              : hasConflicts
+                ? t("tapToReviewInteractions")
+                : t("medicationsAreSafe");
+
+          const canExpand = hasConflicts || hasHigh;
+
+          return (
+            <TouchableOpacity
+              activeOpacity={canExpand ? 0.7 : 1}
+              onPress={() => { if (canExpand) setExpandedInteractionBanner((v) => !v); }}
+              disabled={!canExpand}
+              style={{ backgroundColor: bannerBg, borderRadius: hs(16), borderLeftWidth: 4, borderLeftColor: bannerAccent, padding: hs(16), marginBottom: vs(24) }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(8), marginBottom: bannerDesc && !expandedInteractionBanner ? vs(6) : 0 }}>
+                <MaterialCommunityIcons name={bannerIcon} size={hs(20)} color={bannerAccent} />
+                <Text style={{ fontSize: fontScale(14), fontWeight: "700", color: bannerAccent, flex: 1 }}>
+                  {bannerTitle}
+                </Text>
+                {canExpand && (
+                  <MaterialCommunityIcons name={expandedInteractionBanner ? "chevron-down" : "chevron-right"} size={hs(18)} color={bannerAccent} />
+                )}
+              </View>
+              {bannerDesc && !expandedInteractionBanner ? (
+                <Text style={{ fontSize: fontScale(12), color: bannerAccent, opacity: 0.8, marginLeft: hs(28) }}>
+                  {bannerDesc}
+                </Text>
+              ) : null}
+
+              {expandedInteractionBanner && conflicts.length > 0 && (
+                <View style={{ marginTop: vs(10), backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)", borderRadius: hs(12), overflow: "hidden" }}>
+                  {conflicts.map((conflict, cIdx) => {
+                    const high = Number(conflict.risk_level) >= 2;
+                    const color = high ? "#dc2626" : "#d97706";
+                    const isDrug = conflict.type === "drug";
+                    const label = isDrug
+                      ? `${conflict.drug1}  ↔  ${conflict.drug2}`
+                      : (conflict.disease || t("warning"));
+                    const description = conflict.reason || conflict.description || "";
+
+                    return (
+                      <View key={cIdx}>
+                        {cIdx > 0 && <View style={{ height: 1, backgroundColor: bannerAccent, opacity: 0.15, marginHorizontal: hs(12) }} />}
+                        <View style={{ flexDirection: "row", gap: hs(10), padding: hs(12) }}>
+                          <View style={{ width: hs(3), borderRadius: 2, backgroundColor: color, alignSelf: "stretch" }} />
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: hs(6) }}>
+                              <View style={{ width: hs(7), height: hs(7), borderRadius: hs(4), backgroundColor: color }} />
+                              <Text style={{ fontSize: fontScale(12), fontWeight: "700", color }}>
+                                {high ? t("highRisk") : t("caution")}
+                              </Text>
+                            </View>
+                            <Text style={{ fontSize: fontScale(13), fontWeight: "600", color: theme.onSurface, marginTop: vs(2) }}>
+                              {label}
+                            </Text>
+                            {description ? (
+                              <Text style={{ fontSize: fontScale(12), lineHeight: fontScale(17), color: theme.onSurfaceVariant, marginTop: vs(2) }}>
+                                {description}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                  {conflicts.some((c) => c.verified_by_ai) && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4), paddingHorizontal: hs(12), paddingBottom: hs(10) }}>
+                      <MaterialCommunityIcons name="check-circle-outline" size={hs(12)} color={theme.onSurfaceVariant} />
+                      <Text style={{ fontSize: fontScale(10), color: theme.onSurfaceVariant }}>{t("verified")}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* قائمة الأدوية */}
         {medicationsData.length > 0 && (
@@ -284,23 +402,23 @@ export default function PharmacyDetails() {
               const medId = item.medication_id || item.id;
               const isSelected = selectedMeds[medId] !== false;
               const qty = quantities[medId] || 1;
-              const isAlt = item.match_type?.toLowerCase() === "alternative";
               const hasConflicts = Array.isArray(item.conflicts) && item.conflicts.length > 0;
-              
-              // التحقق من وجود تحذير سلامة أو تضارب لتغيير الإطار للأحمر
-              const hasSafetyWarning = (item.safety_status && item.safety_status !== "unknown") || hasConflicts;
+              const isExpanded = expandedConflicts[medId] === true;
+
+              const maxRisk = hasConflicts
+                ? Math.max(...item.conflicts.map((c) => Number(c.risk_level) || 0))
+                : 0;
+              const hasHigh = maxRisk >= 2;
+              const indicatorColor = hasHigh ? theme.error : "#d97706";
 
               return (
                 <TouchableOpacity
                   key={medId}
                   activeOpacity={0.7}
                   onPress={() => { if (!orderPlaced) toggleMedication(medId); }}
-                  style={[
-                    { padding: hs(14), borderRadius: hs(14), marginBottom: index < medicationsData.length - 1 ? vs(10) : 0, borderWidth: 1, borderColor: hasSafetyWarning ? "#ef4444" : (isSelected ? theme.primary : theme.surfaceContainerLow), opacity: isSelected ? 1 : 0.5, overflow: "hidden" }, 
-                    isAlt && { borderStyle: "dashed" }
-                  ]}
+                  style={{ padding: hs(14), borderRadius: hs(14), marginBottom: index < medicationsData.length - 1 ? vs(10) : 0, borderWidth: 1, borderColor: hasConflicts ? indicatorColor + "40" : (isSelected ? theme.primary : theme.surfaceContainerLow), opacity: isSelected ? 1 : 0.5, overflow: "hidden" }}
                 >
-                  <View style={{ width: hs(4), height: "100%", position: "absolute", left: 0, top: 0, backgroundColor: hasSafetyWarning ? "#ef4444" : (isSelected ? theme.primary : theme.surfaceContainerLow), borderTopLeftRadius: hs(14), borderBottomLeftRadius: hs(14) }} />
+                  <View style={{ width: hs(4), height: "100%", position: "absolute", left: 0, top: 0, backgroundColor: hasConflicts ? indicatorColor : (isSelected ? theme.primary : theme.surfaceContainerLow), borderTopLeftRadius: hs(14), borderBottomLeftRadius: hs(14) }} />
                   <View style={{ flexDirection: "row", alignItems: "flex-start", marginLeft: hs(4) }}>
                     <View style={{ width: hs(22), height: hs(22), borderRadius: hs(6), borderWidth: 2, borderColor: isSelected ? theme.primary : theme.outlineVariant, backgroundColor: isSelected ? theme.primary : "transparent", alignItems: "center", justifyContent: "center", marginRight: hs(10), marginTop: vs(2) }}>
                       {isSelected && <MaterialCommunityIcons name="check" size={hs(14)} color="white" />}
@@ -312,11 +430,11 @@ export default function PharmacyDetails() {
                         </Text>
                         {item.price && (
                           <Text style={[{ fontSize: fontScale(15), fontWeight: "700" }, { color: theme.primary }]}>
-                            {item.price} {t("currency")}
+                            {item.price * qty} {t("currency")}
                           </Text>
                         )}
                       </View>
-                      
+
                       <View style={{ flexDirection: "row", alignItems: "center", gap: hs(8), marginTop: vs(4), flexWrap: "wrap" }}>
                         {item.stock != null && (
                           <View style={{ flexDirection: "row", alignItems: "center", gap: hs(3) }}>
@@ -326,62 +444,72 @@ export default function PharmacyDetails() {
                             </Text>
                           </View>
                         )}
-                        {item.match_type && (
-                          <View style={[{ paddingHorizontal: hs(8), paddingVertical: 2, borderRadius: hs(8) }, { backgroundColor: isAlt ? "#fef3c7" : theme.primaryContainer }]}>
-                            <Text style={{ fontSize: fontScale(9), fontWeight: "700", textTransform: "uppercase", color: isAlt ? "#d97706" : theme.primary }}>
-                              {item.match_type}
-                            </Text>
-                          </View>
-                        )}
-                        
-                        {/* تحذير السلامة والتضارب */}
-                        {hasSafetyWarning && (
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#fee2e2", paddingHorizontal: hs(8), paddingVertical: 2, borderRadius: hs(8) }}>
-                            <MaterialCommunityIcons name="alert-circle" size={hs(12)} color="#b91c1c" />
-                            <Text style={{ fontSize: fontScale(9), fontWeight: "700", textTransform: "uppercase", color: "#b91c1c" }}>
-                              {item.safety_status && item.safety_status !== "unknown"
-                                ? item.safety_status
-                                : `${item.conflicts.length} ${t("conflictsDetected")}`}
-                            </Text>
-                          </View>
-                        )}
                       </View>
 
-                      {/* تفاصيل التضارب الدوائي / المرضي لكل دواء */}
-                      {hasConflicts && item.conflicts.map((conflict, cIdx) => {
-                        const high = Number(conflict.risk_level) >= 2;
-                        const isDrug = conflict.type === "drug";
-                        const label = isDrug ? `${conflict.drug1} \u00d7 ${conflict.drug2}` : (conflict.disease || t("warning"));
-                        return (
-                          <View
-                            key={cIdx}
-                            style={{ backgroundColor: high ? "#fef2f2" : "#fffbeb", borderRadius: hs(10), padding: hs(10), marginTop: vs(8), borderLeftWidth: 3, borderLeftColor: high ? "#dc2626" : "#d97706" }}
-                          >
-                            <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: hs(6) }}>
-                              <MaterialCommunityIcons name="alert-octagon" size={hs(14)} color={high ? "#dc2626" : "#d97706"} />
-                              <Text style={{ fontSize: fontScale(12), fontWeight: "700", flexShrink: 1, color: theme.onSurface }}>
-                                {label}
-                              </Text>
-                              <View style={{ paddingHorizontal: hs(6), paddingVertical: vs(1), borderRadius: hs(8), backgroundColor: high ? "#fee2e2" : "#fef3c7" }}>
-                                <Text style={{ fontSize: fontScale(9), fontWeight: "700", color: high ? "#dc2626" : "#d97706" }}>
-                                  {high ? t("highRisk") : t("caution")}
-                                </Text>
-                              </View>
-                              {conflict.verified_by_ai ? (
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: hs(3), paddingHorizontal: hs(6), paddingVertical: vs(2), borderRadius: hs(8), backgroundColor: "#e0f2fe" }}>
-                                  <MaterialCommunityIcons name="robot-outline" size={hs(10)} color="#0284c7" />
-                                  <Text style={{ fontSize: fontScale(9), fontWeight: "700", color: "#0284c7" }}>{t("aiVerified")}</Text>
+                      {/* Compact conflict indicator */}
+                      {hasConflicts && (
+                        <TouchableOpacity
+                          activeOpacity={0.6}
+                          onPress={() => { if (!orderPlaced) toggleConflictExpand(medId); }}
+                          style={{ flexDirection: "row", alignItems: "center", gap: hs(6), marginTop: vs(6), backgroundColor: hasHigh ? (isDark ? "#2d0a0a" : "#fef2f2") : (isDark ? "#2d2200" : "#fffbeb"), paddingHorizontal: hs(10), paddingVertical: vs(5), borderRadius: hs(10) }}
+                        >
+                          <View style={{ width: hs(8), height: hs(8), borderRadius: hs(4), backgroundColor: indicatorColor }} />
+                          <Text style={{ fontSize: fontScale(12), fontWeight: "600", color: indicatorColor, flex: 1 }}>
+                            {item.conflicts.length} {item.conflicts.length === 1 ? "interaction" : "interactions"} {t("tapToReviewInteractions")}
+                          </Text>
+                          <MaterialCommunityIcons name={isExpanded ? "chevron-down" : "chevron-right"} size={hs(16)} color={indicatorColor} />
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Expanded conflict details */}
+                      {hasConflicts && isExpanded && (
+                        <View style={{ marginTop: vs(8), backgroundColor: theme.surfaceContainerLowest, borderRadius: hs(12), borderWidth: 1, borderColor: theme.surfaceContainerLow, overflow: "hidden" }}>
+                          {item.conflicts.map((conflict, cIdx) => {
+                            const high = Number(conflict.risk_level) >= 2;
+                            const isDrug = conflict.type === "drug";
+                            const color = high ? theme.error : "#d97706";
+
+                            let description = "";
+                            if (isDrug) {
+                              const other = conflict.drug1 === item.trade_name ? conflict.drug2 : conflict.drug1;
+                              description = `${t("interactsWith")} ${other}`;
+                            } else {
+                              description = `${t("interactsWithDisease")} ${conflict.disease || ""}`;
+                            }
+
+                            return (
+                              <View key={cIdx}>
+                                {cIdx > 0 && <View style={{ height: 1, backgroundColor: theme.surfaceContainerLow, marginHorizontal: hs(12) }} />}
+                                <View style={{ flexDirection: "row", gap: hs(10), padding: hs(12) }}>
+                                  <View style={{ width: hs(3), borderRadius: 2, backgroundColor: color, alignSelf: "stretch" }} />
+                                  <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: hs(6), marginBottom: conflict.reason ? vs(2) : 0 }}>
+                                      <View style={{ width: hs(7), height: hs(7), borderRadius: hs(4), backgroundColor: color }} />
+                                      <Text style={{ fontSize: fontScale(12), fontWeight: "700", color }}>
+                                        {high ? t("highRisk") : t("caution")}
+                                      </Text>
+                                      {conflict.verified_by_ai && (
+                                        <View style={{ flexDirection: "row", alignItems: "center", gap: hs(3), marginLeft: "auto" }}>
+                                          <MaterialCommunityIcons name="check-circle-outline" size={hs(12)} color={theme.onSurfaceVariant} />
+                                          <Text style={{ fontSize: fontScale(10), color: theme.onSurfaceVariant }}>{t("verified")}</Text>
+                                        </View>
+                                      )}
+                                    </View>
+                                    <Text style={{ fontSize: fontScale(13), fontWeight: "600", color: theme.onSurface, marginTop: vs(2) }}>
+                                      {description}
+                                    </Text>
+                                    {conflict.reason ? (
+                                      <Text style={{ fontSize: fontScale(12), lineHeight: fontScale(17), color: theme.onSurfaceVariant, marginTop: vs(2) }}>
+                                        {conflict.reason}
+                                      </Text>
+                                    ) : null}
+                                  </View>
                                 </View>
-                              ) : null}
-                            </View>
-                            {conflict.reason ? (
-                              <Text style={{ fontSize: fontScale(11), lineHeight: fontScale(15), marginTop: vs(4), color: theme.onSurfaceVariant }}>
-                                {conflict.reason}
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      })}
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
 
                       {isSelected && (
                         <View style={{ flexDirection: "row", alignItems: "center", marginTop: vs(10), borderTopWidth: 1, borderTopColor: theme.surfaceContainerLow, paddingTop: vs(8) }}>
@@ -453,8 +581,8 @@ export default function PharmacyDetails() {
           <View style={{ backgroundColor: theme.surfaceContainerLowest, width: "100%", borderRadius: hs(20), padding: hs(20), shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, elevation: 5 }}>
             
             <View style={{ flexDirection: "row", alignItems: "center", gap: hs(10), marginBottom: vs(12) }}>
-              <MaterialCommunityIcons name="alert-octagon" size={hs(28)} color="#dc2626" />
-              <Text style={{ fontSize: fontScale(18), fontWeight: "700", color: "#dc2626" }}>
+              <MaterialCommunityIcons name="alert-octagon" size={hs(28)} color={theme.error} />
+              <Text style={{ fontSize: fontScale(18), fontWeight: "700", color: theme.error }}>
                 {t("drugInteractionWarning") || "تحذير تضارب دوائي"}
               </Text>
             </View>
@@ -474,12 +602,12 @@ export default function PharmacyDetails() {
                       : (warning.disease || t("warning"));
                 const description = warning.description || warning.reason || "";
                 return (
-                  <View key={idx} style={{ backgroundColor: high ? "#fee2e2" : "#fffbeb", padding: hs(10), borderRadius: hs(10), marginBottom: vs(8), borderLeftWidth: 3, borderLeftColor: high ? "#dc2626" : "#d97706" }}>
-                    <Text style={{ fontSize: fontScale(13), fontWeight: "700", color: high ? "#991b1b" : "#92400e" }}>
+                  <View key={idx} style={{ backgroundColor: high ? (isDark ? "#2d0a0a" : "#fee2e2") : (isDark ? "#2d2200" : "#fffbeb"), padding: hs(10), borderRadius: hs(10), marginBottom: vs(8), borderLeftWidth: 3, borderLeftColor: high ? theme.error : "#d97706" }}>
+                    <Text style={{ fontSize: fontScale(13), fontWeight: "700", color: high ? theme.error : "#d97706" }}>
                       {label}
                     </Text>
                     {description ? (
-                      <Text style={{ fontSize: fontScale(12), color: "#7f1d1d", marginTop: vs(2) }}>
+                      <Text style={{ fontSize: fontScale(12), color: theme.onSurfaceVariant, marginTop: vs(2) }}>
                         {description}
                       </Text>
                     ) : null}
@@ -501,7 +629,7 @@ export default function PharmacyDetails() {
 
               {/* زر المتابعة رغم التحذير */}
               <TouchableOpacity
-                style={{ flex: 1, paddingVertical: vs(12), borderRadius: hs(14), backgroundColor: "#dc2626", alignItems: "center" }}
+                style={{ flex: 1, paddingVertical: vs(12), borderRadius: hs(14), backgroundColor: theme.error, alignItems: "center" }}
                 onPress={() => {
                   setInteractionModalVisible(false);
                   executeOrderPlacement(true); // تخطي التحذير والمتابعة بالطلب

@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -12,19 +13,25 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import tw from "twrnc";
 import { CustomSelect, InputField } from "@/components/FormInputs";
+import LegalConsentCheckbox from "@/components/LegalConsentCheckbox";
 import LocationPickerModal from "@/components/LocationPickerModal";
 import { useDoctorRegisterForm } from "@/hooks/useDoctorRegisterForm";
 import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
+import { useToast } from "@/src/context/ToastContext";
+import { setConsent } from "@/services/legalConsentStorage";
+
+const AUTH_PRIMARY = "#4bbaba";
 
 export default function DoctorRegisterScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const { theme } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
+  const { error: toastError } = useToast();
+  const [consentChecked, setConsentChecked] = useState(false);
   const {
     currentStep,
     loading,
@@ -55,12 +62,24 @@ export default function DoctorRegisterScreen() {
     WORKPLACE_TYPES,
   } = useDoctorRegisterForm();
 
+  const handlePrimaryPress = () => {
+    if (currentStep === 3) {
+      if (!consentChecked) {
+        toastError(t("consentRequired"));
+        return;
+      }
+      setConsent(true, ["terms", "privacy"]).then(() => submitRegistration());
+      return;
+    }
+    nextStep();
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={[tw`flex-1`, { backgroundColor: theme.surface }]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.surface }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         <View style={{ paddingHorizontal: hs(24), paddingTop: vs(12) }}>
           <TouchableOpacity
             onPress={() => (currentStep === 1 ? router.back() : prevStep())}
@@ -81,7 +100,7 @@ export default function DoctorRegisterScreen() {
               borderRadius: hs(22),
               justifyContent: "center",
               alignItems: "center",
-              backgroundColor: theme.primary,
+              backgroundColor: AUTH_PRIMARY,
             }}
           >
             <MaterialCommunityIcons name="stethoscope" size={hs(24)} color="white" />
@@ -137,45 +156,49 @@ export default function DoctorRegisterScreen() {
             <StepWorkplaces workplaces={workplaces} currentWorkplace={currentWorkplace} updateWorkplaceField={updateWorkplaceField} addWorkplace={addWorkplace} removeWorkplace={removeWorkplace} showLocationPicker={showLocationPicker} setShowLocationPicker={setShowLocationPicker} workplaceTypeModal={workplaceTypeModal} setWorkplaceTypeModal={setWorkplaceTypeModal} WORKPLACE_TYPES={WORKPLACE_TYPES} theme={theme} hs={hs} vs={vs} fontScale={fontScale} t={t} />
           )}
         </ScrollView>
+      </KeyboardAvoidingView>
 
-        <View style={{ paddingHorizontal: hs(24), paddingBottom: vs(32) }}>
-          <TouchableOpacity
-            onPress={currentStep === 3 ? submitRegistration : nextStep}
-            disabled={loading}
-            style={{
-              height: vs(60),
-              borderRadius: hs(28),
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: theme.primary,
-              opacity: loading ? 0.6 : 1,
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white", marginRight: hs(8) }}>
-                  {currentStep === 3 ? t("completeRegistration") : t("next")}
-                </Text>
-                <MaterialCommunityIcons name="arrow-right" size={hs(20)} color="white" />
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => router.replace("/(auth-doctor)/DoctorLoginScreen")}
-            style={{ marginTop: vs(16), alignItems: "center" }}
-          >
-            <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
-              {t("alreadyHaveAccount")}{" "}
-              <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: theme.primary }]}>
-                {t("login")}
+      <View style={{ paddingHorizontal: hs(24), paddingBottom: vs(32) }}>
+        {currentStep === 3 && (
+          <LegalConsentCheckbox checked={consentChecked} onToggle={() => setConsentChecked(!consentChecked)} />
+        )}
+        <TouchableOpacity
+          onPress={handlePrimaryPress}
+          disabled={loading}
+          style={{
+            height: vs(60),
+            borderRadius: hs(28),
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: AUTH_PRIMARY,
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white", marginRight: hs(8) }}>
+                {currentStep === 3 ? t("completeRegistration") : t("next")}
               </Text>
+              <MaterialCommunityIcons name="arrow-right" size={hs(20)} color="white" />
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => router.replace("/(auth-doctor)/DoctorLoginScreen")}
+          style={{ marginTop: vs(16), alignItems: "center" }}
+        >
+          <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
+            {t("alreadyHaveAccount")}{" "}
+            <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: AUTH_PRIMARY }]}>
+              {t("login")}
             </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <LocationPickerModal
         visible={showLocationPicker}
         onClose={() => setShowLocationPicker(false)}
@@ -183,7 +206,7 @@ export default function DoctorRegisterScreen() {
         initialLatitude={currentWorkplace.latitude}
         initialLongitude={currentWorkplace.longitude}
       />
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -258,7 +281,7 @@ function StepCredentials({ syndicateImage, setSyndicateImage, theme, hs, vs, fon
       </Text>
 
       {syndicateImage ? (
-        <Image source={{ uri: syndicateImage }} style={{ width: "100%", height: vs(200), borderRadius: hs(16) }} resizeMode="cover" />
+        <Image source={{ uri: syndicateImage.uri }} style={{ width: "100%", height: vs(200), borderRadius: hs(16) }} resizeMode="cover" />
       ) : null}
 
       <TouchableOpacity
@@ -326,7 +349,7 @@ function StepWorkplaces({ workplaces, currentWorkplace, updateWorkplaceField, ad
 
         <TouchableOpacity
           onPress={addWorkplace}
-          style={{ paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center", backgroundColor: theme.primary }}
+          style={{ paddingVertical: vs(12), borderRadius: hs(12), alignItems: "center", backgroundColor: AUTH_PRIMARY }}
         >
           <Text style={{ fontSize: fontScale(14), fontWeight: "700", color: "white" }}>{t("addWorkplace")}</Text>
         </TouchableOpacity>

@@ -112,8 +112,8 @@ export default function ForgotPasswordScreen() {
                   fontSize: fontScale(10),
                   fontWeight: "700",
                   textTransform: "uppercase",
-                  marginBottom: 8,
-                  marginLeft: 4,
+                  marginBottom: vs(8),
+                  marginLeft: hs(4),
                   color: theme.onSurfaceVariant,
                   letterSpacing: 1,
                 }}
@@ -124,7 +124,7 @@ export default function ForgotPasswordScreen() {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  borderRadius: 12,
+                  borderRadius: hs(12),
                   borderWidth: 1,
                   paddingHorizontal: hs(16),
                   height: vs(56),
@@ -138,7 +138,7 @@ export default function ForgotPasswordScreen() {
                   color={theme.onSurfaceVariant}
                 />
                 <TextInput
-                  style={{ flex: 1, height: "100%", marginLeft: 12, fontSize: fontScale(16), color: theme.onSurface }}
+                  style={{ flex: 1, height: "100%", marginLeft: hs(12), fontSize: fontScale(16), color: theme.onSurface }}
                   placeholder={t("emailPlaceholder")}
                   placeholderTextColor={theme.onSurfaceVariant}
                   value={email}
@@ -149,7 +149,7 @@ export default function ForgotPasswordScreen() {
                 />
               </View>
               {errors.email && (
-                <Text style={{ fontSize: fontScale(12), marginTop: 4, marginLeft: 4, color: theme.error }}>
+                <Text style={{ fontSize: fontScale(12), marginTop: vs(4), marginLeft: hs(4), color: theme.error }}>
                   {errors.email}
                 </Text>
               )}
@@ -161,7 +161,7 @@ export default function ForgotPasswordScreen() {
               activeOpacity={0.8}
               style={{
                 height: vs(56),
-                borderRadius: 28,
+                borderRadius: hs(28),
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: isLoading ? theme.outlineVariant : theme.primary,
@@ -170,7 +170,7 @@ export default function ForgotPasswordScreen() {
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
                   {t("forgotPasswordSendCode")}
                 </Text>
               )}
@@ -196,7 +196,7 @@ export default function ForgotPasswordScreen() {
                   style={{
                     width: hs(48),
                     height: vs(56),
-                    borderRadius: 12,
+                    borderRadius: hs(12),
                     borderWidth: 1,
                     textAlign: "center",
                     fontSize: fontScale(22),
@@ -226,8 +226,8 @@ export default function ForgotPasswordScreen() {
                   fontSize: fontScale(10),
                   fontWeight: "700",
                   textTransform: "uppercase",
-                  marginBottom: 8,
-                  marginLeft: 4,
+                  marginBottom: vs(8),
+                  marginLeft: hs(4),
                   color: theme.onSurfaceVariant,
                   letterSpacing: 1,
                 }}
@@ -238,7 +238,7 @@ export default function ForgotPasswordScreen() {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  borderRadius: 12,
+                  borderRadius: hs(12),
                   borderWidth: 1,
                   paddingHorizontal: hs(16),
                   height: vs(56),
@@ -252,7 +252,7 @@ export default function ForgotPasswordScreen() {
                   color={theme.onSurfaceVariant}
                 />
                 <TextInput
-                  style={{ flex: 1, height: "100%", marginLeft: 12, fontSize: fontScale(16), color: theme.onSurface }}
+                  style={{ flex: 1, height: "100%", marginLeft: hs(12), fontSize: fontScale(16), color: theme.onSurface }}
                   placeholder="••••••••"
                   placeholderTextColor={theme.onSurfaceVariant}
                   secureTextEntry
@@ -262,7 +262,7 @@ export default function ForgotPasswordScreen() {
                 />
               </View>
               {errors.password && (
-                <Text style={{ fontSize: fontScale(12), marginTop: 4, marginLeft: 4, color: theme.error }}>
+                <Text style={{ fontSize: fontScale(12), marginTop: vs(4), marginLeft: hs(4), color: theme.error }}>
                   {errors.password}
                 </Text>
               )}
@@ -274,8 +274,8 @@ export default function ForgotPasswordScreen() {
                   fontSize: fontScale(10),
                   fontWeight: "700",
                   textTransform: "uppercase",
-                  marginBottom: 8,
-                  marginLeft: 4,
+                  marginBottom: vs(8),
+                  marginLeft: hs(4),
                   color: theme.onSurfaceVariant,
                   letterSpacing: 1,
                 }}
@@ -286,7 +286,7 @@ export default function ForgotPasswordScreen() {
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  borderRadius: 12,
+                  borderRadius: hs(12),
                   borderWidth: 1,
                   paddingHorizontal: hs(16),
                   height: vs(56),
@@ -300,7 +300,7 @@ export default function ForgotPasswordScreen() {
                   color={theme.onSurfaceVariant}
                 />
                 <TextInput
-                  style={{ flex: 1, height: "100%", marginLeft: 12, fontSize: fontScale(16), color: theme.onSurface }}
+                  style={{ flex: 1, height: "100%", marginLeft: hs(12), fontSize: fontScale(16), color: theme.onSurface }}
                   placeholder="••••••••"
                   placeholderTextColor={theme.onSurfaceVariant}
                   secureTextEntry
@@ -310,7 +310,7 @@ export default function ForgotPasswordScreen() {
                 />
               </View>
               {errors.confirmPassword && (
-                <Text style={{ fontSize: fontScale(12), marginTop: 4, marginLeft: 4, color: theme.error }}>
+                <Text style={{ fontSize: fontScale(12), marginTop: vs(4), marginLeft: hs(4), color: theme.error }}>
                   {errors.confirmPassword}
                 </Text>
               )}
@@ -322,7 +322,7 @@ export default function ForgotPasswordScreen() {
               activeOpacity={0.8}
               style={{
                 height: vs(56),
-                borderRadius: 28,
+                borderRadius: hs(28),
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: isLoading ? theme.outlineVariant : theme.primary,
@@ -331,7 +331,7 @@ export default function ForgotPasswordScreen() {
               {isLoading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
+                <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>
                   {t("resetPasswordButton")}
                 </Text>
               )}

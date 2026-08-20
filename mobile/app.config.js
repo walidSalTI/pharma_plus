@@ -1,25 +1,27 @@
-// Reads app.json as the base manifest and applies build-time overrides.
-// app.config.js takes precedence over app.json when both exist.
-const appJson = require("./app.json");
-
-const googleMapsApiKey =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
-
-const plugins = Array.isArray(appJson.expo.plugins) ? [...appJson.expo.plugins] : [];
-if (!plugins.some((p) => p === "expo-image-picker" || (Array.isArray(p) && p[0] === "expo-image-picker"))) {
-  plugins.push(["expo-image-picker", { microphonePermission: false }]);
-}
-
-module.exports = {
-  ...appJson.expo,
-  android: {
-    ...(appJson.expo.android || {}),
-    config: {
-      ...(appJson.expo.android?.config || {}),
-      googleMaps: {
-        apiKey: googleMapsApiKey,
+module.exports = ({ config }) => {
+  return {
+    ...config,
+    name: config.name || "Pharma Plus",
+    slug: "pharma-plus",
+    plugins: [
+      ...(config.plugins || []),
+      ["expo-image-picker", { microphonePermission: false }]
+    ],
+    extra: {
+      ...(config.extra || {}),
+      eas: {
+        projectId: "0669596a-2bc7-4628-8677-e23752044b87",
       },
     },
-  },
-  plugins,
+    updates: {
+      enabled: true,
+      checkAutomatically: "ON_LOAD",
+      fallbackToCacheTimeout: 0,
+      url: "https://u.expo.dev/0669596a-2bc7-4628-8677-e23752044b87",
+      ...(config.updates || {}),
+    },
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+  };
 };

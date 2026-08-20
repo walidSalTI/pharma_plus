@@ -23,9 +23,12 @@ export const InputField = ({
     error,
     rightIcon,
     onRightIconPress,
+    onPress,
 }) => {
     const { theme } = useAppTheme();
     const { hs, vs, fontScale } = useResponsive();
+    const Container = !editable && onPress ? TouchableOpacity : View;
+    const containerProps = !editable && onPress ? { activeOpacity: 0.7, onPress } : {};
     return (
         <View style={tw`mb-3`}>
             {label && (
@@ -38,12 +41,13 @@ export const InputField = ({
                     {label}
                 </Text>
             )}
-            <View
+            <Container
+                {...containerProps}
                 style={[
                     {
                         flexDirection: "row",
                         alignItems: "center",
-                        borderRadius: 12,
+                        borderRadius: hs(12),
                         borderWidth: 1,
                         paddingHorizontal: hs(16),
                         backgroundColor: theme.surfaceContainerLow,
@@ -83,7 +87,7 @@ export const InputField = ({
                         />
                     </TouchableOpacity>
                 )}
-            </View>
+            </Container>
             {error && (
                 <Text
                     style={[
@@ -128,7 +132,7 @@ export const CustomSelect = ({
                     {
                         flexDirection: "row",
                         alignItems: "center",
-                        borderRadius: 12,
+                        borderRadius: hs(12),
                         borderWidth: 1,
                         paddingHorizontal: hs(16),
                         backgroundColor: theme.surfaceContainerLow,
@@ -137,10 +141,10 @@ export const CustomSelect = ({
                     },
                 ]}
             >
-                <Text
-                    style={[
-                        tw`flex-1`,
-                        { fontSize: fontScale(16), color: value ? theme.onSurface : theme.onSurfaceVariant },
+            <Text
+                style={[
+                    tw`flex-1`,
+                    { fontSize: fontScale(16), color: value ? theme.onSurface : theme.onSurfaceVariant },
                     ]}
                 >
                     {value || placeholder}

@@ -25,8 +25,9 @@ import { useCustomAlert } from "@/src/context/CustomAlertContext";
 import { webShadow } from "@/constants/shadow";
 import { useResponsive } from "@/constants/responsive";
 import { useUserName } from "@/hooks/useUserName";
+import { useExitPrompt } from "@/hooks/useExitPrompt";
 import { toggleWalletItem, updatePills, deleteWalletItem } from "@/services/walletService";
-import { removeMedication, getMedications } from "@/services/medicationStorage";
+import { removeMedication, getMedications, saveMedications } from "@/services/medicationStorage";
 import { syncRemindersFromStorage } from "@/services/notificationService";
 
 export default function MedicationsScreen() {
@@ -34,10 +35,11 @@ export default function MedicationsScreen() {
   const { t } = useLanguage();
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
-  const { loading, meds, nextMed, otherMeds, refreshMedications, error, offline } = useMedicationsData();
-  const { userName } = useUserName();
+  const { loading, meds, nextMed, otherMeds, refreshMedications, markDoseTaken, error, offline } = useMedicationsData();
+  const { userName, lName } = useUserName();
   const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
   const { confirm } = useCustomAlert();
+  const { exitModal } = useExitPrompt();
   const scheduledMeds = meds.filter((m) => !m.isAsNeeded);
 
   const [actionMed, setActionMed] = useState(null);
@@ -48,6 +50,13 @@ export default function MedicationsScreen() {
     setActionMed(null);
     try {
       await toggleWalletItem(item.id, !item.isActive);
+      const allMeds = await getMedications();
+      const target = allMeds.find((m) => String(m.medication_id) === String(item.medicationId));
+      if (target) {
+        target.is_active = !item.isActive;
+        await saveMedications([target]);
+      }
+      await syncRemindersFromStorage(getMedications);
       refreshMedications();
     } catch {
       toastError(t("medUpdateFailed"));
@@ -91,6 +100,29 @@ export default function MedicationsScreen() {
     }
   };
 
+  const isWithinScheduledWindow = (item) => {
+    if (!item.nextDoseTime24) return true;
+    const [h, m] = item.nextDoseTime24.split(":").map(Number);
+    const scheduledMinutes = h * 60 + m;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    return Math.abs(currentMinutes - scheduledMinutes) <= 30;
+  };
+
+  const doMarkTaken = async (item) => {
+    const current = item.availablePills;
+    try {
+      await updatePills(item.id, current != null ? current - 1 : 0);
+      if (current != null && current - 1 <= 0) {
+        toastWarning(t("refillNeeded"));
+      }
+      markDoseTaken(item.medicationId, item.nextDoseTime24);
+      refreshMedications();
+    } catch {
+      toastError(t("medUpdateFailed"));
+    }
+  };
+
   const handleMarkTaken = async (item) => {
     setActionMed(null);
     const current = item.availablePills;
@@ -98,14 +130,17 @@ export default function MedicationsScreen() {
       toastWarning(t("refillNeeded"));
       return;
     }
-    try {
-      await updatePills(item.id, current != null ? current - 1 : 0);
-      if (current != null && current - 1 <= 0) {
-        toastWarning(t("refillNeeded"));
-      }
-      refreshMedications();
-    } catch {
-      toastError(t("medUpdateFailed"));
+    if (isWithinScheduledWindow(item)) {
+      await doMarkTaken(item);
+    } else {
+      confirm({
+        title: t("markAsTaken"),
+        message: t("wrongTimeWarning", { time: item.time }),
+        confirmText: t("yesTakeIt"),
+        cancelText: t("cancel"),
+        variant: "warning",
+        onConfirm: () => doMarkTaken(item),
+      });
     }
   };
 
@@ -133,8 +168,7 @@ export default function MedicationsScreen() {
           ]}
         >
           <View style={[tw`flex-row items-center`, { gap: hs(12)}]}>
-            <UserAvatar size={hs(36)} onPress={() => router.push("/settings")} />
-            <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName || "Pharma"}</Text>
+            <Text numberOfLines={1} style={[{ fontSize: fontScale(20), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName} {lName}</Text>
           </View>
           <SettingsButton />
         </View>
@@ -179,13 +213,13 @@ export default function MedicationsScreen() {
                     <MaterialCommunityIcons name="dots-vertical" size={hs(18)} color={theme.onSurfaceVariant} />
                   </TouchableOpacity>
                   {nextMed.refillRisk && (
-                    <View style={[{ position: "absolute", top: hs(12), left: hs(12), zIndex: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#fef3c7", paddingHorizontal: hs(12), paddingVertical: 4, borderRadius: hs(16) }]}>
+                    <View style={[{ position: "absolute", top: hs(12), left: hs(12), zIndex: 10, flexDirection: "row", alignItems: "center", gap: hs(4), backgroundColor: "#fef3c7", paddingHorizontal: hs(12), paddingVertical: vs(4), borderRadius: hs(16) }]}>
                       <MaterialCommunityIcons name="alert-triangle" size={hs(14)} color="#d97706" />
                       <Text style={{ fontSize: fontScale(10), fontWeight: "700", color: "#d97706", textTransform: "uppercase" }}>{t("refillSoon")}</Text>
                     </View>
                   )}
                   <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", position: "relative", zIndex: 10, marginTop: vs(16) }}>
-                    <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flex: 1, gap: hs(4) }}>
                       <Text style={[{ fontSize: fontScale(12), fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" }, { color: theme.primary }]}>
                         {t("upNext", { time: nextMed.time })}
                       </Text>
@@ -217,14 +251,16 @@ export default function MedicationsScreen() {
                     <TouchableOpacity
                       style={[{
                         paddingHorizontal: hs(24),
-                        paddingVertical: vs(12),
+                        height: vs(48),
                         borderRadius: hs(24),
+                        alignItems: "center",
+                        justifyContent: "center",
                         backgroundColor: theme.primary,
                         ...webShadow({ elevation: 6, color: theme.primary, radius: 10, offsetY: 6 }),
                       }]}
                       onPress={() => handleMarkTaken(nextMed)}
                     >
-                      <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>{t("markAsTaken")}</Text>
+                      <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white" }}>{t("markAsTaken")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={{ paddingHorizontal: hs(16), paddingVertical: vs(12), borderRadius: hs(24) }} onPress={handleSnooze}>
                       <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.primary }]}>{t("snooze")}</Text>
@@ -241,37 +277,42 @@ export default function MedicationsScreen() {
                       <TouchableOpacity
                         key={item.id}
                         activeOpacity={0.7}
-                        style={[{ borderRadius: hs(16), padding: hs(20), flexDirection: "row", alignItems: "center", gap: hs(20) }, { backgroundColor: theme.surfaceContainerLow }]}
+                        style={[{ borderRadius: hs(16), paddingLeft: hs(4), paddingVertical: hs(14), paddingRight: hs(16), flexDirection: "row", alignItems: "center", gap: hs(12), overflow: "hidden" }, { backgroundColor: theme.surfaceContainerLow }, webShadow({ elevation: 2, color: isDark ? "#000" : "#000", opacity: isDark ? 0.1 : 0.04, radius: 8, offsetY: 2 })]}
                       >
-                        <View style={[{ width: hs(48), height: hs(48), borderRadius: hs(24), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.surfaceContainerLowest }]}>
+                        <View style={{ width: hs(3), alignSelf: "stretch", borderRadius: hs(2), backgroundColor: theme.primary }} />
+                        <View style={[{ width: hs(52), height: hs(52), borderRadius: hs(26), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.primaryContainer }]}>
                           <MaterialCommunityIcons
                             name={item.icon === "Inhaler" ? "asthma" : item.icon || "pill"}
                             size={hs(24)}
                             color={theme.primary}
                           />
                         </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: hs(8) }}>
-                            <Text style={[{ fontSize: fontScale(18), fontWeight: "700" }, { color: theme.onSurface }]}>{item.name}</Text>
+                        <View style={{ flex: 1, gap: hs(2) }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: hs(6) }}>
+                            <Text numberOfLines={1} ellipsizeMode="tail" style={[{ fontSize: fontScale(16), fontWeight: "700", flex: 1 }, { color: theme.onSurface }]}>{item.name}</Text>
                             {item.refillRisk && (
                               <MaterialCommunityIcons name="alert-triangle" size={hs(14)} color="#d97706" />
                             )}
                           </View>
-                          <Text style={[{ fontSize: fontScale(16), color: theme.onSurfaceVariant }]}>{item.dose}</Text>
+                          <Text style={[{ fontSize: fontScale(13), color: theme.onSurfaceVariant }]}>{item.dose}</Text>
                           {item.availablePills != null && (
-                            <Text style={[{ fontSize: fontScale(14), color: theme.onSurfaceVariant }]}>
-                              {item.availablePills} {t("pills")}
-                            </Text>
+                            <View style={[{ alignSelf: "flex-start", paddingHorizontal: hs(8), paddingVertical: vs(2), borderRadius: hs(8) }, { backgroundColor: theme.secondaryContainer }]}>
+                              <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }, { color: theme.onSecondaryContainer }]}>
+                                {item.availablePills} {t("pills")}
+                              </Text>
+                            </View>
                           )}
                         </View>
                         {item.isAsNeeded ? (
-                          <View style={[{ paddingHorizontal: hs(12), paddingVertical: vs(6), borderRadius: hs(16) }, { backgroundColor: theme.secondaryContainer }]}>
+                          <View style={[{ paddingHorizontal: hs(10), paddingVertical: vs(4), borderRadius: hs(8) }, { backgroundColor: theme.secondaryContainer }]}>
                             <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }, { color: theme.onSecondaryContainer }]}>
                               {t("asNeeded")}
                             </Text>
                           </View>
                         ) : (
-                          <Text style={[{ fontSize: fontScale(16), fontWeight: "700" }, { color: theme.onSurface }]}>{item.time}</Text>
+                          <View style={[{ paddingHorizontal: hs(10), paddingVertical: vs(4), borderRadius: hs(8) }, { backgroundColor: theme.primaryContainer }]}>
+                            <Text style={[{ fontSize: fontScale(12), fontWeight: "700" }, { color: theme.primary }]}>{item.time}</Text>
+                          </View>
                         )}
                         <TouchableOpacity onPress={() => showActionMenu(item)} style={{ padding: hs(4) }}>
                           <MaterialCommunityIcons name="dots-vertical" size={hs(18)} color={theme.onSurfaceVariant} />
@@ -386,6 +427,7 @@ export default function MedicationsScreen() {
       <View style={tw`absolute bottom-0 left-0 right-0 z-50`}>
         <BottomNavBar activeTab="Meds" />
       </View>
+      {exitModal}
     </View>
   );
 }

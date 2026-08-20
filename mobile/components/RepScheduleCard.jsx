@@ -79,7 +79,7 @@ function RepScheduleCard({ schedule, onPress }) {
             {doctorName}
           </Text>
           {doctor?.specialization && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: vs(2) }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4), marginTop: vs(2) }}>
               <MaterialCommunityIcons name="stethoscope" size={hs(12)} color={theme.onSurfaceVariant} />
               <Text style={{ fontSize: fontScale(12), color: theme.onSurfaceVariant, textTransform: "capitalize" }}>
                 {doctor.specialization}
@@ -87,14 +87,14 @@ function RepScheduleCard({ schedule, onPress }) {
             </View>
           )}
           <View style={{ flexDirection: "row", alignItems: "center", gap: hs(10), marginTop: vs(6) }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4) }}>
               <MaterialCommunityIcons name="clock-outline" size={hs(13)} color={theme.onSurfaceVariant} />
               <Text style={{ fontSize: fontScale(13), fontWeight: "600", color: theme.onSurface }}>
                 {scheduledTime}
               </Text>
             </View>
             {scheduledDate ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4) }}>
                 <MaterialCommunityIcons name="calendar-outline" size={hs(13)} color={theme.onSurfaceVariant} />
                 <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>
                   {scheduledDate}
@@ -108,7 +108,7 @@ function RepScheduleCard({ schedule, onPress }) {
           style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 4,
+            gap: hs(4),
             paddingHorizontal: hs(10),
             paddingVertical: vs(6),
             borderRadius: hs(8),

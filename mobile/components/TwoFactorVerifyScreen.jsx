@@ -206,7 +206,7 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
           <View
             style={{
               backgroundColor: theme.errorContainer,
-              borderRadius: 12,
+              borderRadius: hs(12),
               padding: vs(12),
               marginBottom: vs(16),
             }}
@@ -237,7 +237,7 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
                   style={{
                     width: hs(48),
                     height: vs(56),
-                    borderRadius: 12,
+                    borderRadius: hs(12),
                     borderWidth: 1,
                     textAlign: "center",
                     fontSize: fontScale(22),
@@ -257,7 +257,7 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
             </View>
 
             {loading && (
-              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: hs(8) }}>
                 <ActivityIndicator size="small" color={theme.primary} />
                 <Text style={{ fontSize: fontScale(13), color: theme.onSurfaceVariant }}>
                   {t("twoFactorVerifying")}
@@ -290,9 +290,9 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
               style={{
                 width: "100%",
                 height: vs(56),
-                borderRadius: 12,
+                borderRadius: hs(12),
                 borderWidth: 1,
-                paddingHorizontal: 16,
+                paddingHorizontal: hs(16),
                 fontSize: fontScale(15),
                 fontFamily: "monospace",
                 letterSpacing: 2,
@@ -315,7 +315,7 @@ export default function TwoFactorVerifyScreen({ role = "doctor" }) {
               activeOpacity={0.8}
               style={{
                 height: vs(56),
-                borderRadius: 28,
+                borderRadius: hs(28),
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: loading || !recoveryCode.trim() ? theme.outlineVariant : theme.primary,

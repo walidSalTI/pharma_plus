@@ -15,7 +15,7 @@ import { CustomSelect, InputField } from "@/components/FormInputs";
 import LocationPickerModal from "@/components/LocationPickerModal";
 import WorkplaceCard from "@/components/WorkplaceCard";
 import { logoutDoctor } from "@/services/doctorAuthService";
-import { clearToken } from "@/services/tokenService";
+import { clearToken, clearUserRole } from "@/services/tokenService";
 import { clearAllReminders } from "@/services/reminderCleanup";
 import { updateDoctorProfile, getDoctorWorkplaces, addWorkplace as addWorkplaceApi, updateWorkplace as updateWorkplaceApi, deleteWorkplace as deleteWorkplaceApi } from "@/services/doctorService";
 import { useDoctorProfile } from "@/hooks/useDoctorProfile";
@@ -109,6 +109,7 @@ export default function DoctorProfileScreen() {
         } catch {}
         await clearAllReminders();
         await clearToken();
+        await clearUserRole();
         signOut();
         router.replace("/");
       },
@@ -213,19 +214,14 @@ export default function DoctorProfileScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: vs(192) }}>
         <View style={{ alignItems: "center", paddingTop: vs(32), paddingBottom: vs(24) }}>
-          <View style={[{ width: hs(80), height: hs(80), borderRadius: hs(40), alignItems: "center", justifyContent: "center" }, { backgroundColor: theme.primaryContainer }]}>
-            <Text style={[{ fontSize: fontScale(30), fontWeight: "700" }, { color: theme.primary }]}>
-              {fName.charAt(0).toUpperCase()}{lName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={[{ fontSize: fontScale(20), fontWeight: "700", marginTop: vs(12) }, { color: theme.onSurface }]}>
+          <Text numberOfLines={1} style={[{ fontSize: fontScale(20), fontWeight: "700" }, { color: theme.onSurface }]}>
             Dr. {fName} {lName}
           </Text>
           <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
             {profile?.email}
           </Text>
           {profile?.specialization && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: vs(4) }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: hs(4), marginTop: vs(4) }}>
               <MaterialCommunityIcons name="stethoscope" size={hs(14)} color={theme.primary} />
               <Text style={{ fontSize: fontScale(13), color: theme.primary, fontWeight: "600" }}>
                 {profile.specialization}
@@ -256,9 +252,10 @@ export default function DoctorProfileScreen() {
             onPress={handleSave}
             disabled={saving}
             style={{
-              paddingVertical: vs(16),
+              height: vs(56),
               borderRadius: hs(16),
               alignItems: "center",
+              justifyContent: "center",
               marginTop: vs(24),
               backgroundColor: theme.primary,
               opacity: saving ? 0.6 : 1,
@@ -268,11 +265,11 @@ export default function DoctorProfileScreen() {
             {saving ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text style={[{ fontSize: fontScale(16), fontWeight: "700", color: "white" }]}>{t("saveChanges")}</Text>
+              <Text numberOfLines={1} style={[{ fontSize: fontScale(16), fontWeight: "700", color: "white" }]}>{t("saveChanges")}</Text>
             )}
           </TouchableOpacity>
 
-          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+          <View style={[{ height: vs(1), marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
           <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
             {t("workplaces")}
@@ -303,7 +300,7 @@ export default function DoctorProfileScreen() {
             <Text style={{ fontSize: fontScale(14), fontWeight: "700", color: theme.primary }}>{t("addWorkplace")}</Text>
           </TouchableOpacity>
 
-          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+          <View style={[{ height: vs(1), marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
           <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
             {t("verificationStatus")}
@@ -328,7 +325,7 @@ export default function DoctorProfileScreen() {
             </Text>
           </View>
 
-          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+          <View style={[{ height: vs(1), marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
           <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
             {t("preferences")}
@@ -366,7 +363,7 @@ export default function DoctorProfileScreen() {
             </View>
           </TouchableOpacity>
 
-          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+          <View style={[{ height: vs(1), marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
           <Text style={[{ fontSize: fontScale(10), fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: vs(12) }, { color: theme.onSurfaceVariant }]}>
             {t("security")}
@@ -385,7 +382,7 @@ export default function DoctorProfileScreen() {
             <MaterialCommunityIcons name="chevron-right" size={hs(22)} color={theme.onSurfaceVariant} />
           </TouchableOpacity>
 
-          <View style={[{ height: 1, marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
+          <View style={[{ height: vs(1), marginVertical: vs(32) }, { backgroundColor: theme.outlineVariant }]} />
 
           <TouchableOpacity
             onPress={handleLogout}

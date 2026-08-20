@@ -151,7 +151,7 @@ export default function RepScheduleDetail() {
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    gap: 6,
+                    gap: hs(6),
                     marginTop: vs(8),
                     paddingHorizontal: hs(16),
                     paddingVertical: vs(6),
@@ -176,7 +176,7 @@ export default function RepScheduleDetail() {
                 marginTop: vs(24),
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: hs(6) }}>
                 <MaterialCommunityIcons name="clock-outline" size={hs(16)} color="rgba(255,255,255,0.8)" />
                 <Text style={{ fontSize: fontScale(15), fontWeight: "600", color: "#ffffff" }}>
                   {scheduledTime}
@@ -184,8 +184,8 @@ export default function RepScheduleDetail() {
               </View>
               {scheduledDate ? (
                 <>
-                  <View style={{ width: 1, height: vs(16), backgroundColor: "rgba(255,255,255,0.3)" }} />
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ width: hs(1), height: vs(16), backgroundColor: "rgba(255,255,255,0.3)" }} />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: hs(6) }}>
                     <MaterialCommunityIcons name="calendar-outline" size={hs(16)} color="rgba(255,255,255,0.8)" />
                     <Text style={{ fontSize: fontScale(15), fontWeight: "600", color: "#ffffff" }}>
                       {scheduledDate}
@@ -255,12 +255,12 @@ export default function RepScheduleDetail() {
                           flexDirection: "row",
                           alignItems: "center",
                           justifyContent: "center",
-                          gap: 6,
-                          marginTop: vs(12),
-                          paddingVertical: vs(8),
-                          borderRadius: hs(10),
-                          borderWidth: 1,
-                          borderColor: theme.primary + "40",
+                      gap: hs(6),
+                      marginTop: vs(12),
+                      paddingVertical: vs(8),
+                      borderRadius: hs(10),
+                      borderWidth: 1,
+                      borderColor: theme.primary + "40",
                           backgroundColor: theme.primaryContainer + "30",
                         }}
                       >

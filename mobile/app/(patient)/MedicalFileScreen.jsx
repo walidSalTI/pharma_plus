@@ -37,7 +37,7 @@ export default function MedicalFileScreen() {
   const { t } = useLanguage();
   const { theme, isDark } = useAppTheme();
   const { hs, vs, fontScale, isTablet } = useResponsive();
-  const { userName } = useUserName();
+  const { userName, lName } = useUserName();
   const { confirm } = useCustomAlert();
 
   const [loading, setLoading] = useState(true);
@@ -179,7 +179,7 @@ export default function MedicalFileScreen() {
                         {disease.name_en}
                       </Text>
                       {disease.name_ar && (
-                        <Text style={[{ fontSize: fontScale(12), marginTop: 2 }, { color: theme.onSurfaceVariant }]}>
+                        <Text style={[{ fontSize: fontScale(12), marginTop: vs(2) }, { color: theme.onSurfaceVariant }]}>
                           {disease.name_ar}
                         </Text>
                       )}
@@ -280,13 +280,12 @@ export default function MedicalFileScreen() {
             ]}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: hs(12) }}>
-              <UserAvatar size={hs(36)} onPress={() => router.push("/settings")} />
-              <Text style={[{ fontSize: fontScale(24), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName || "Pharma"}</Text>
+              <Text numberOfLines={1} style={[{ fontSize: fontScale(20), fontWeight: "800", letterSpacing: -0.5 }, { color: theme.primary }]}>{userName} {lName}</Text>
             </View>
             <SettingsButton />
           </View>
 
-          <ScrollView contentContainerStyle={{ paddingHorizontal: hs(24), paddingBottom: vs(24), paddingTop: vs(32) }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: hs(24), paddingBottom: vs(192), paddingTop: vs(32) }} showsVerticalScrollIndicator={false}>
             <View style={{ marginBottom: vs(32) }}>
               <Text style={[{ fontWeight: "700", textTransform: "uppercase", marginBottom: vs(4), letterSpacing: 1, fontSize: fontScale(11) }, { color: theme.primary }]}>
                 {t("patientProfile")}
@@ -305,11 +304,11 @@ export default function MedicalFileScreen() {
               <>
                 <View style={[{ padding: hs(20), borderRadius: hs(24), marginBottom: vs(32) }, { backgroundColor: theme.surfaceContainerLowest, ...webShadow({ elevation: 2, opacity: 0.04 }) }]}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: vs(24) }}>
-                    <Text style={[{ fontSize: fontScale(18), fontWeight: "700" }, { color: theme.onSurface }]}>
+                    <Text style={[{ fontSize: fontScale(18), fontWeight: "700", flex: 1 }, { color: theme.onSurface }]} numberOfLines={1}>
                       {t("chronicConditions")}
                     </Text>
-                    <View style={[{ paddingHorizontal: hs(12), paddingVertical: vs(6), borderRadius: hs(16) }, { backgroundColor: theme.primaryContainer }]}>
-                      <Text style={[{ fontSize: fontScale(12), fontWeight: "700" }, { color: theme.primary }]}>
+                    <View style={[{ paddingHorizontal: hs(12), paddingVertical: vs(6), borderRadius: hs(16), flexShrink: 0, marginLeft: hs(8) }, { backgroundColor: theme.primaryContainer }]}>
+                      <Text style={[{ fontSize: fontScale(12), fontWeight: "700" }, { color: theme.primary }]} numberOfLines={1}>
                         {myDiseases.length} {t("selected")}
                       </Text>
                     </View>
@@ -351,8 +350,6 @@ export default function MedicalFileScreen() {
           </ScrollView>
         </View>
 
-        <BottomNavBar activeTab="Records" />
-
         <Modal
           visible={showAddModal}
           animationType="slide"
@@ -375,6 +372,10 @@ export default function MedicalFileScreen() {
           </TouchableOpacity>
         </Modal>
       </SafeAreaView>
+
+      <View style={tw`absolute bottom-0 left-0 right-0 z-50`}>
+        <BottomNavBar activeTab="Records" />
+      </View>
     </View>
   );
 }

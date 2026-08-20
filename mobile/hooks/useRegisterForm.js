@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useToast } from "@/src/context/ToastContext";
+import { useLanguage } from "@/src/i18n/LanguageContext";
 import { registerUser } from "@/services/authService";
 import { setPendingVerifyEmail } from "@/services/tokenService";
 
 export const useRegisterForm = () => {
   const router = useRouter();
   const { error: toastError } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -60,7 +62,7 @@ export const useRegisterForm = () => {
     const newErrors = {};
     if (!form.f_name.trim()) newErrors.f_name = "First name is required";
     if (!form.l_name.trim()) newErrors.l_name = "Last name is required";
-    if (!form.age || isNaN(form.age)) newErrors.age = "Enter a valid age";
+    if (!form.age || isNaN(form.age) || Number(form.age) < 19) newErrors.age = t("invalidAge");
     if (!form.phone_number.trim()) newErrors.phone_number = "Phone is required";
     if (!form.email.trim()) newErrors.email = "Email is required";
     if (!form.password || form.password.length < 8)

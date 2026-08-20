@@ -19,6 +19,9 @@ import { useLanguage } from "@/src/i18n/LanguageContext";
 import { useAppTheme } from "@/src/theme/ThemeContext";
 import { useResponsive } from "@/constants/responsive";
 
+const AUTH_PRIMARY = "#4bbaba";
+const AUTH_PRIMARY_DIM = "#3aa0a0";
+
 export default function LoginScreen() {
   const router = useRouter();
   const {
@@ -56,27 +59,25 @@ export default function LoginScreen() {
         contentContainerStyle={[tw`flex-grow justify-center py-12`, { paddingHorizontal: isTablet ? hs(120) : hs(24) }]}
       >
         <View style={{ alignItems: "center", marginBottom: vs(36) }}>
-          <LinearGradient
-            colors={[theme.primary, "#38bdf8"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <View
             style={{
               width: hs(48),
               height: hs(48),
               borderRadius: hs(12),
               justifyContent: "center",
               alignItems: "center",
+              backgroundColor: AUTH_PRIMARY,
             }}
           >
             <MaterialCommunityIcons name="pulse" size={hs(28)} color="white" />
-          </LinearGradient>
+          </View>
           <Text
             style={{
               fontSize: fontScale(24),
               fontWeight: "700",
               marginTop: vs(12),
               letterSpacing: -0.5,
-              color: theme.primary,
+              color: AUTH_PRIMARY,
             }}
           >
             {t("Pharma")}
@@ -95,6 +96,7 @@ export default function LoginScreen() {
             }}
             adjustsFontSizeToFit
             minimumFontScale={0.6}
+            numberOfLines={1}
           >
             {t("welcomeBack")}
           </Text>
@@ -125,7 +127,7 @@ export default function LoginScreen() {
           }}
         >
           <LinearGradient
-            colors={[theme.primary, "#38bdf8"]}
+            colors={[AUTH_PRIMARY, AUTH_PRIMARY_DIM]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
@@ -134,7 +136,7 @@ export default function LoginScreen() {
             <ActivityIndicator color="white" />
           ) : (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ fontSize: fontScale(16), fontWeight: "700", color: "white", marginRight: hs(8) }}>
+              <Text numberOfLines={1} style={{ fontSize: fontScale(16), fontWeight: "700", color: "white", marginRight: hs(8) }}>
                 {t("signIn")}
               </Text>
               <MaterialCommunityIcons
@@ -152,7 +154,7 @@ export default function LoginScreen() {
         >
           <Text style={[{ fontSize: fontScale(14) }, { color: theme.onSurfaceVariant }]}>
             {t("dontHaveAccount")}
-            <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: theme.primary }]}>
+            <Text style={[{ fontSize: fontScale(14), fontWeight: "700" }, { color: AUTH_PRIMARY }]}>
               {" "}
               {t("requestAccess")}
             </Text>

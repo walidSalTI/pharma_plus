@@ -13,8 +13,8 @@ export const LoginEmailInput = ({ email, setEmail, error }) => {
           fontSize: fontScale(10),
           fontWeight: "700",
           textTransform: "uppercase",
-          marginBottom: 8,
-          marginLeft: 4,
+          marginBottom: vs(8),
+          marginLeft: hs(4),
           color: theme.onSurfaceVariant,
           letterSpacing: 1,
         }}
@@ -25,7 +25,7 @@ export const LoginEmailInput = ({ email, setEmail, error }) => {
         style={{
           flexDirection: "row",
           alignItems: "center",
-          borderRadius: 12,
+          borderRadius: hs(12),
           borderWidth: 1,
           paddingHorizontal: hs(16),
           height: vs(56),
@@ -39,7 +39,7 @@ export const LoginEmailInput = ({ email, setEmail, error }) => {
           color={theme.onSurfaceVariant}
         />
         <TextInput
-          style={{ flex: 1, height: "100%", marginLeft: 12, fontSize: fontScale(16), color: theme.onSurface }}
+          style={{ flex: 1, height: "100%", marginLeft: hs(12), fontSize: fontScale(16), color: theme.onSurface }}
           placeholder="Enter your email"
           placeholderTextColor={theme.onSurfaceVariant}
           value={email}
@@ -49,7 +49,7 @@ export const LoginEmailInput = ({ email, setEmail, error }) => {
         />
       </View>
       {error && (
-        <Text style={{ fontSize: fontScale(12), marginTop: 4, marginLeft: 4, color: theme.error }}>{error}</Text>
+        <Text style={{ fontSize: fontScale(12), marginTop: vs(4), marginLeft: hs(4), color: theme.error }}>{error}</Text>
       )}
     </View>
   );
@@ -66,8 +66,8 @@ export const LoginPasswordInput = ({
   const { theme } = useAppTheme();
   const { hs, vs, fontScale } = useResponsive();
   return (
-    <View style={{ marginTop: 16 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8, marginLeft: 4 }}>
+    <View style={{ marginTop: vs(16) }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: vs(8), marginLeft: hs(4) }}>
         <Text
           style={{
             fontSize: fontScale(10),
@@ -97,7 +97,7 @@ export const LoginPasswordInput = ({
         style={{
           flexDirection: "row",
           alignItems: "center",
-          borderRadius: 12,
+          borderRadius: hs(12),
           borderWidth: 1,
           paddingHorizontal: hs(16),
           height: vs(56),
@@ -111,7 +111,7 @@ export const LoginPasswordInput = ({
           color={theme.onSurfaceVariant}
         />
         <TextInput
-          style={{ flex: 1, height: "100%", marginLeft: 12, fontSize: fontScale(16), color: theme.onSurface }}
+          style={{ flex: 1, height: "100%", marginLeft: hs(12), fontSize: fontScale(16), color: theme.onSurface }}
           placeholder="Enter your password"
           placeholderTextColor={theme.onSurfaceVariant}
           secureTextEntry={!showPassword}
@@ -127,7 +127,7 @@ export const LoginPasswordInput = ({
         </TouchableOpacity>
       </View>
       {error && (
-        <Text style={{ fontSize: fontScale(12), marginTop: 4, marginLeft: 4, color: theme.error }}>{error}</Text>
+        <Text style={{ fontSize: fontScale(12), marginTop: vs(4), marginLeft: hs(4), color: theme.error }}>{error}</Text>
       )}
     </View>
   );

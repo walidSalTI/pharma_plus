@@ -2,11 +2,12 @@ import { Stack, useRouter } from "expo-router";
 import { TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAppTheme } from "@/src/theme/ThemeContext";
-import AuthControls from "@/components/AuthControls";
+import { useResponsive } from "@/constants/responsive";
 
 export default function AuthLayout() {
   const router = useRouter();
   const { theme } = useAppTheme();
+  const { hs } = useResponsive();
 
   return (
     <Stack
@@ -24,10 +25,9 @@ export default function AuthLayout() {
           headerTitle: "",
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.replace("/")}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color={theme.onSurface} />
+              <MaterialCommunityIcons name="arrow-left" size={hs(24)} color={theme.onSurface} />
             </TouchableOpacity>
           ),
-          headerRight: () => <AuthControls />,
         }}
       />
       <Stack.Screen

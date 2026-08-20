@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useCallback, useState } from "react";
-import { getStoredToken, getUserRole } from "@/services/tokenService";
+import { getStoredToken, getUserRole, clearToken, clearUserRole } from "@/services/tokenService";
 import { registerUnauthorizedHandler } from "@/services/authEvents";
 
 const AuthContext = createContext(null);
+
+const VALID_ROLES = ["patient", "doctor", "rep"];
 
 export function AuthProvider({ children }) {
   const [status, setStatus] = useState("loading");
@@ -20,8 +22,14 @@ export function AuthProvider({ children }) {
         }
         const storedRole = await getUserRole();
         if (cancelled) return;
-        setRole(storedRole || "patient");
-        setStatus("authed");
+        if (VALID_ROLES.includes(storedRole)) {
+          setRole(storedRole);
+          setStatus("authed");
+          return;
+        }
+        await clearToken();
+        await clearUserRole();
+        if (!cancelled) setStatus("guest");
       } catch {
         if (!cancelled) setStatus("guest");
       }
@@ -32,7 +40,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = useCallback((nextRole) => {
-    setRole(nextRole || "patient");
+    setRole(VALID_ROLES.includes(nextRole) ? nextRole : null);
     setStatus("authed");
   }, []);
 

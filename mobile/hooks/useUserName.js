@@ -4,6 +4,7 @@ import { getUserName, setUserName } from "@/services/tokenService";
 
 export const useUserName = () => {
   const [userName, setUserNameState] = useState("");
+  const [lName, setLNameState] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,14 +15,20 @@ export const useUserName = () => {
         if (cancelled) return;
         if (stored) {
           setUserNameState(stored);
+          try {
+            const data = await getProfile();
+            if (!cancelled) setLNameState(data.l_name || data.last_name || "");
+          } catch {}
           setLoading(false);
           return;
         }
         const data = await getProfile();
         if (cancelled) return;
         const name = data.f_name || data.first_name || "";
+        const last = data.l_name || data.last_name || "";
         if (name) await setUserName(name);
         setUserNameState(name);
+        setLNameState(last);
       } catch {
         if (!cancelled) setUserNameState("");
       } finally {
@@ -31,5 +38,5 @@ export const useUserName = () => {
     return () => { cancelled = true; };
   }, []);
 
-  return { userName, loading };
+  return { userName, lName, loading };
 };
